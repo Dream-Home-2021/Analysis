@@ -153,7 +153,7 @@ newOpenCsm['户均消费'] = newOpenCsm['户均消费'].fillna(0)
 # newOpenCsm.iloc[:,12:].apply(lambda x:np.count_nonzero(x),axis=1
 
 
-# In[23]:
+# In[23]
 
 
 # newOpenCsm.iloc[:,12:]
