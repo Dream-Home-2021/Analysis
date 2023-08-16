@@ -12,7 +12,7 @@ import warnings
 import openpyxl
 import os
 import re
-import te
+import tedd
 t1 = time.time()
 
 # In[3]:
