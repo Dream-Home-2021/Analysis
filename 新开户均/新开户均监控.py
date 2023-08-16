@@ -147,7 +147,7 @@ newOpenCsm['有消费天数'] = newOpenCsm.iloc[:, 12:].apply(lambda x: np.count
 newOpenCsm['户均消费'] = newOpenCsm[mcstr] / newOpenCsm['有消费天数']
 newOpenCsm['户均消费'] = newOpenCsm['户均消费'].fillna(0)
 
-# In[2
+# In[
 
 
 # newOpenCsm.iloc[:,12:].apply(lambda x:np.count_nonzero(x),axis=1
