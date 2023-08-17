@@ -265,8 +265,11 @@ kh_nthan7csm_sht = kh_ncsm_wb[kh_ncsm_wb.sheetnames[2]]
 QnotCsmC.drop(QnotCsmC[QnotCsmC['公司名称'] == '石狮市鑫旺星宇服装商行'].index, inplace=True)
 QnotCsmC.drop(QnotCsmC[QnotCsmC['公司名称'] == '石狮市泰龙妙汇网络服装店'].index, inplace=True)
 
-QnotCsmC_nlt7.drop(QnotCsmC[QnotCsmC['公司名称'] == '石狮市鑫旺星宇服装商行'].index, inplace=True)
-QnotCsmC_nlt7.drop(QnotCsmC[QnotCsmC['公司名称'] == '石狮市泰龙妙汇网络服装店'].index, inplace=True)
+QnotCsmC_nlt7.drop(QnotCsmC_nlt7[QnotCsmC_nlt7['公司名称'] == '石狮市鑫旺星宇服装商行'].index, inplace=True)
+QnotCsmC_nlt7.drop(QnotCsmC_nlt7[QnotCsmC_nlt7['公司名称'] == '石狮市泰龙妙汇网络服装店'].index, inplace=True)
+
+kh_ncsmPQ2.drop(kh_ncsmPQ2[kh_ncsmPQ2['公司名称'] == '石狮市鑫旺星宇服装商行'].index, inplace=True)
+kh_ncsmPQ2.drop(kh_ncsmPQ2[kh_ncsmPQ2['公司名称'] == '石狮市泰龙妙汇网络服装店'].index, inplace=True)
 
 sendQncsm(QnotCsmC, kh_ncsm_sht, 0)
 sendQncsm(kh_ncsmPQ2, kh_ncsmPQ2_sht, 0)
@@ -289,6 +292,7 @@ sale_ncsm_sht = sale_ncsm_wb[sale_ncsm_wb.sheetnames[0]]
 
 sale_nthan7csm_sht = sale_ncsm_wb[sale_ncsm_wb.sheetnames[1]]
 
+
 sendQncsm(QnotCsmC, sale_ncsm_sht, 1)
 sendQncsm(QnotCsmC_nlt7, sale_nthan7csm_sht, 1)
 
@@ -303,7 +307,7 @@ sale_ncsm_wb.save(path2 + filename)
 # In[119]:
 
 
-os.remove('未消费客户明细.csv')
+# os.remove('未消费客户明细.csv')
 
 # In[120]:
 
