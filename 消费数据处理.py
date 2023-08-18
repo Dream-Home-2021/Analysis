@@ -1694,26 +1694,26 @@ def newOrderCount(cityStr):
 
 
 def newOrderCsm(cityStr):
-    custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
-                                                                 QstarMon(today - dt.timedelta(1)), 1))
-                      & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
-            csm_temp['运营单位账户属性'] == '老户新开'))
-                      & (csm_temp['城市&框架'] == cityStr)]
-
-    # 计算custID里总消费第1天-8天列的数据之和
-    company8csm = custID[['总消费第{}天'.format(i) for i in range(1, 9)]].sum()
-
     # custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
     #                                                              QstarMon(today - dt.timedelta(1)), 1))
     #                   & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
     #         csm_temp['运营单位账户属性'] == '老户新开'))
-    #                   & (csm_temp['城市&框架'] == cityStr)]['资质客户ID'].drop_duplicates()
+    #                   & (csm_temp['城市&框架'] == cityStr)]
+    #
+    # # 计算custID里总消费第1天-8天列的数据之和
+    # company8csm = custID[['总消费第{}天'.format(i) for i in range(1, 9)]].sum()
 
-    # companyCsm = csm_temp[csm_temp['资质客户ID'].isin(custID)]
+    custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
+                                                                 QstarMon(today - dt.timedelta(1)), 1))
+                      & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
+            csm_temp['运营单位账户属性'] == '老户新开'))
+                      & (csm_temp['城市&框架'] == cityStr)]['资质客户ID'].drop_duplicates()
 
-    # companyCsm = pd.merge(csm_temp, custID, on='资质客户ID', how='right')
-    # company8csm = pd.pivot_table(custID, values=['总消费第{}天'.format(i) for i in range(1, 9)],
-    #                              index=['资质客户ID'], aggfunc=np.sum, margins=True).iloc[-1, :]
+    companyCsm = csm_temp[csm_temp['资质客户ID'].isin(custID)]
+
+    companyCsm = pd.merge(csm_temp, custID, on='资质客户ID', how='right')
+    company8csm = pd.pivot_table(custID, values=['总消费第{}天'.format(i) for i in range(1, 9)],
+                                 index=['资质客户ID'], aggfunc=np.sum, margins=True).iloc[-1, :]
     company8csm.index = clm
     return company8csm
 
