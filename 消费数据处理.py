@@ -1700,7 +1700,7 @@ def newOrderCsm(cityStr):
     #         csm_temp['运营单位账户属性'] == '老户新开'))
     #                   & (csm_temp['城市&框架'] == cityStr)]
     #
-    # # 计算custID里总消费第1天-8天列的数据之和
+    # # 计算custID里总消费第1天-8天列的数据之和、
     # company8csm = custID[['总消费第{}天'.format(i) for i in range(1, 9)]].sum()
 
     custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
