@@ -377,7 +377,7 @@ def csmInspection(olddata, newdata):
         col = [(today - dt.timedelta(et + 1 - i)).strftime('%m{m}%d{d}').format(m='月', d='日') for i in range(et - k)]
         ol = olddata.iloc[:, :et]
         ne = newdata.iloc[:, (7 - k) - et:-1 - k]
-
+    print(ol, col)
     ol.columns = col
     ne.columns = col
     data_diff = (ol - ne)
@@ -659,7 +659,8 @@ with pd.ExcelFile(path + filename) as ds_sheets:
 print(ds_ccm.iloc[:, -2].isnull().sum())  # 11
 
 print(ds_ccacm.iloc[:, -1].isnull().sum())  # 11
-
+print("one stay", ds_ccm)
+print("second stay", ds_csm_8_Part)
 # 检查今日下载的大搜消费数据是否与昨日下载的大搜消费数据一致
 print("一定要保证框架为0，total为0：", csmInspection(ds_ccm, ds_csm_8_Part).round(2))
 
@@ -1655,8 +1656,13 @@ for i in range(len(city)):
 # ## 新单数据
 
 
+# def QstarMon(date=today):
+#     q = np.int32(np.floor(((date - dt.timedelta(1)).month - 1) / 3) + 1)
+#     qstarm = (q - 1) * 3 + 1
+#     return qstarm
+
 def QstarMon(date=today):
-    q = np.int32(np.floor(((date - dt.timedelta(1)).month - 1) / 3) + 1)
+    q = np.int32(np.floor(((date).month - 1) / 3) + 1)
     qstarm = (q - 1) * 3 + 1
     return qstarm
 
@@ -1693,27 +1699,28 @@ def newOrderCount(cityStr):
 #     return {cityStr:csmLt}
 
 
+# def newOrderCsm(cityStr):
+#     custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
+#                                                                  QstarMon(today - dt.timedelta(1)), 1))
+#                       & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
+#             csm_temp['运营单位账户属性'] == '老户新开'))
+#                       & (csm_temp['城市&框架'] == cityStr)]['资质客户ID'].drop_duplicates()
+#
+#
+#     companyCsm = pd.merge(csm_temp, custID, on='资质客户ID', how='right')
+#     company8csm = pd.pivot_table(companyCsm, values=['总消费第{}天'.format(i) for i in range(1, 9)],
+#                                  index=['资质客户ID'], aggfunc=np.sum, margins=True).iloc[-1, :]
+#     company8csm.index = clm
+#     return company8csm
 def newOrderCsm(cityStr):
-    # custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
-    #                                                              QstarMon(today - dt.timedelta(1)), 1))
-    #                   & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
-    #         csm_temp['运营单位账户属性'] == '老户新开'))
-    #                   & (csm_temp['城市&框架'] == cityStr)]
-    #
-    # # 计算custID里总消费第1天-8天列的数据之和、
-    # company8csm = custID[['总消费第{}天'.format(i) for i in range(1, 9)]].sum()
-
     custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
                                                                  QstarMon(today - dt.timedelta(1)), 1))
                       & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
             csm_temp['运营单位账户属性'] == '老户新开'))
-                      & (csm_temp['城市&框架'] == cityStr)]['资质客户ID'].drop_duplicates()
+                      & (csm_temp['城市&框架'] == cityStr) & (csm_temp['部门'] != '框架')].drop_duplicates()
 
-    companyCsm = csm_temp[csm_temp['资质客户ID'].isin(custID)]
-
-    companyCsm = pd.merge(csm_temp, custID, on='资质客户ID', how='right')
     company8csm = pd.pivot_table(custID, values=['总消费第{}天'.format(i) for i in range(1, 9)],
-                                 index=['资质客户ID'], aggfunc=np.sum, margins=True).iloc[-1, :]
+                                 index=['账户名称'], aggfunc=np.sum, margins=True).iloc[-1, :]
     company8csm.index = clm
     return company8csm
 
@@ -1749,11 +1756,15 @@ else:
     t = 1
 # ******************************************************
 # 特殊时间需更改，表示1年前同季度的首月
-judgeDate = dt.date((today - dt.timedelta(t)).year - 1, QstarMon(today - dt.timedelta(t)), 1)  ##########
+judgeDate = dt.date((today - dt.timedelta(t)).year, QstarMon(today - dt.timedelta(t)), 1)  ##########
 
 # 表示账户首次消费日期1年前同季度之前或者账户首次消费日期为空
-PreQcsm_acct = csm_temp[((csm_temp['判断日期'] < judgeDate) | (pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
-
+# PreQcsm_acct = csm_temp[((csm_temp['判断日期'] < judgeDate) | (pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
+PreQcsm_acct = csm_temp[((csm_temp['部门'] != '框架') & (csm_temp['判断日期'] < judgeDate) | (
+    pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
+loss = csm_temp[
+    (csm_temp['判断日期'] == judgeDate) & (csm_temp['运营单位账户属性'] == '一户多开') & (csm_temp['部门'] != '框架')]
+PreQcsm_acct = pd.concat([PreQcsm_acct, loss])
 During4Q = pd.read_excel(r'2022Q3-2023Q2.xlsx')  # 每个季度需要更换此数据表
 
 # PreQcsm_acct['总消费'] = 0 
@@ -1800,6 +1811,12 @@ print('老户新开客户数：', pca['资质客户ID'].unique().shape[0])
 
 pca.drop_duplicates(inplace=True)
 
+# 筛选出前7天消费为0，第8天有消费的
+locs = pca[pca.iloc[:,9:].apply(lambda row: row[:7].eq(0).all() and row[7] > 0, axis=1)].index
+
+# 按城市分组计数
+s = pca.loc[locs,:].groupby(by='城市')['城市'].count()
+
 dayCust = pd.merge(pca['账户ID'], csm_temp[lt], on='账户ID', how='left')
 dayCust.to_excel(r'缓存数据\dayCust.xlsx')
 print('dayCust:', dayCust)
@@ -1829,6 +1846,17 @@ csm_temp.query('部门 !="框架" and 账户首次消费日==@acct_fist_csm_date
     '账户首次消费日')
 
 d1 = dict2dataframe(newOrderCount)
+
+# 对第8天的数据汇总
+def addDataframe_index(df1, df2):
+    index = df2.index
+    if index[0]:
+        for i in index:
+            df1.loc['第8天', :][i] = df1.loc['第8天', :][i] + s[i]
+    else:
+        print("今日pca没有新单")
+addDataframe_index(d1, s)
+
 d1.to_excel(r'缓存数据\newOrderCount.xlsx')
 print('新单数量（需手动添加老户新开的部分的新单）：', d1)
 
