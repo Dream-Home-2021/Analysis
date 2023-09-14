@@ -1812,10 +1812,10 @@ print('老户新开客户数：', pca['资质客户ID'].unique().shape[0])
 pca.drop_duplicates(inplace=True)
 
 # 筛选出前7天消费为0，第8天有消费的
-locs = pca[pca.iloc[:,9:].apply(lambda row: row[:7].eq(0).all() and row[7] > 0, axis=1)].index
+locs = pca[pca.iloc[:, 9:].apply(lambda row: row[:7].eq(0).all() and row[7] > 0, axis=1)].index
 
 # 按城市分组计数
-s = pca.loc[locs,:].groupby(by='城市')['城市'].count()
+s = pca.loc[locs, :].groupby(by='城市')['城市'].count()
 
 dayCust = pd.merge(pca['账户ID'], csm_temp[lt], on='账户ID', how='left')
 dayCust.to_excel(r'缓存数据\dayCust.xlsx')
@@ -1847,6 +1847,7 @@ csm_temp.query('部门 !="框架" and 账户首次消费日==@acct_fist_csm_date
 
 d1 = dict2dataframe(newOrderCount)
 
+
 # 对第8天的数据汇总
 def addDataframe_index(df1, df2):
     index = df2.index
@@ -1855,7 +1856,10 @@ def addDataframe_index(df1, df2):
             df1.loc['第8天', :][i] = df1.loc['第8天', :][i] + s[i]
     else:
         print("今日pca没有新单")
-addDataframe_index(d1, s)
+    return df1
+
+
+d1 = addDataframe_index(d1, s)
 
 d1.to_excel(r'缓存数据\newOrderCount.xlsx')
 print('新单数量（需手动添加老户新开的部分的新单）：', d1)
