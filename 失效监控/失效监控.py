@@ -3,7 +3,6 @@
 
 # In[1]:
 
-
 import numpy as np
 import pandas as pd
 import time
@@ -248,9 +247,9 @@ ds_invalidMonitor_wb = openpyxl.load_workbook('客户失效监控.xlsx')
 
 
 if Yesterday.day < 10:
-    path = '大搜客户失效监控/{}年{}月份搜索客户失效监控-0{}.xlsx'.format(Yesterday.year, Yesterday.month, Yesterday.day)
+    path = '大搜客户失效监控/{}年搜索客户失效监控-{}.xlsx'.format(Yesterday.strftime('%Y'), Yesterday.strftime('%m%d'))
 else:
-    path = '大搜客户失效监控/{}年{}月份搜索客户失效监控-{}.xlsx'.format(Yesterday.year, Yesterday.month, Yesterday.day)
+    path = '大搜客户失效监控/{}年搜索客户失效监控-{}.xlsx'.format(Yesterday.strftime('%Y'), Yesterday.strftime('%m%d'))
 WriteDate(ds_invalid, ds_invalidMonitor_wb, path)
 
 # In[36]:
@@ -297,11 +296,10 @@ inflow_invalidMonitor_wb = openpyxl.load_workbook('客户失效监控.xlsx')
 
 
 if Yesterday.day < 10:
-    path = '信息流客户失效监控/{}年{}月份信息客户失效监控-0{}.xlsx'.format(Yesterday.year, Yesterday.month,
-                                                                           Yesterday.day)
+    path = '信息流客户失效监控/{}年信息客户失效监控-{}.xlsx'.format(Yesterday.strftime('%Y'), Yesterday.strftime('%m%d'))
+
 else:
-    path = '信息流客户失效监控/{}年{}月份信息客户失效监控-{}.xlsx'.format(Yesterday.year, Yesterday.month,
-                                                                          Yesterday.day)
+    path = '信息流客户失效监控/{}年信息客户失效监控-{}.xlsx'.format(Yesterday.strftime('%Y'), Yesterday.strftime('%m%d'))
 WriteDate(inflow_invalid, inflow_invalidMonitor_wb, path)
 
 # In[44]:

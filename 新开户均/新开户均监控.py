@@ -31,16 +31,14 @@ pd.set_option('display.max_columns', None)
 
 data = pd.read_csv('新开部门新开.csv')
 addressbook = pd.read_excel('../通讯录.xlsx', usecols=[0, 1, 2, 3])
-print(addressbook.info())
 
 # In[5]:
 
 # 选择新开部门,新开一部,新开二部,新开三部,泉州新开,漳州新开,合并并重置索引,并将其赋值给newOpen
 newOpen = addressbook[
     (addressbook['组别'] == '新开部门') | (addressbook['组别'] == '新开一部') | (addressbook['组别'] == '新开二部') | (
-                addressbook['组别'] == '新开三部') | (addressbook['组别'] == '泉州新开') | (
-                addressbook['组别'] == '漳州新开')].reset_index(drop=True)
-print(newOpen.info())
+            addressbook['组别'] == '新开三部') | (addressbook['组别'] == '泉州新开') | (
+            addressbook['组别'] == '漳州新开')].reset_index(drop=True)
 # In[6]:
 
 
@@ -51,7 +49,6 @@ data['开户日期'] = pd.to_datetime(data['开户日期'], errors='ignore')
 data['管理员'] = data['管理员'].apply(str)  # 利用apply将用于合并的列转化成相同的类型
 newOpen['管理员'] = newOpen['管理员'].apply(str)
 data = pd.merge(data, newOpen, how='left', on='管理员')
-
 # In[8]:
 
 
@@ -86,6 +83,7 @@ colList.extend(data.columns[7:-3].tolist())
 
 
 newOpenCsm = data[data['组别'].notna()][colList].reset_index(drop=True)
+# print(newOpenCsm)
 
 # In[13]:
 
@@ -164,7 +162,7 @@ newOpenCsm['户均消费'] = newOpenCsm['户均消费'].fillna(0)
 
 opt1 = newOpenCsm[
     (newOpenCsm['组别'] == '新开一部') | (newOpenCsm['组别'] == '新开二部') | (newOpenCsm['组别'] == '新开三部') | (
-                newOpenCsm['组别'] == '新开部门')][['户均消费', '户均完成率']]
+            newOpenCsm['组别'] == '新开部门')][['户均消费', '户均完成率']]
 opt2 = newOpenCsm[(newOpenCsm['组别'] == '泉州新开') | (newOpenCsm['组别'] == '漳州新开')][['户均消费', '户均完成率']]
 
 # In[25]:
@@ -199,9 +197,12 @@ wb = openpyxl.load_workbook('新开部门行业户均监控表.xlsx')
 schedule = wb['明细']
 
 # In[31]:
-print(newOpenCsm.columns)
-#剔除账户名称里的颍川电脑 森辉电脑 梓骏防水 世通时代 泉州广邦 创兴货运代理 广源废品回收 飞宏回收1 对应的行
-newOpenCsm = newOpenCsm[~newOpenCsm['账户名称'].isin(['颍川电脑', '森辉电脑', '梓骏防水', '世通时代', '泉州广邦', '创兴货运代理', '广源废品回收', '飞宏回收1'])]
+# 剔除账户名称里的颍川电脑 森辉电脑 梓骏防水 世通时代 泉州广邦 创兴货运代理 广源废品回收 飞宏回收1 对应的行
+newOpenCsm = newOpenCsm[~newOpenCsm['账户名称'].isin(
+    ['颍川电脑', '森辉电脑', '梓骏防水', '世通时代', '泉州广邦', '创兴货运代理', '广源废品回收', '飞宏回收1',
+     "厦门童声", "xm宏佳", "邻里亲家政", "帝标软膜装饰", "泉州天利", "鑫通源电子", "诺宏回收", "数智引力", "高海滨回收",
+     "有有达物流", "泉州米柚", "招商加盟-沃联", "漳州恒裕隆1", "格维陶瓷", "泉州大华1", "泉州烁翔", "厦兴重工",
+     "厦门朗晔"])]
 
 for r in range(newOpenCsm.shape[0]):
     for c in range(newOpenCsm.shape[1]):
@@ -233,12 +234,18 @@ yd = dt.datetime.today() - dt.timedelta(1)
 
 path = '新开部门行业户均监控\\'
 filename = '新开部门行业户均监控-{}.xlsx'.format(yd.strftime('%m%d'))
-
+print(filename)
 # In[36]:
 
 
 wb.save(path + filename)
-
+# import yagmail
+# yag = yagmail.SMTP('fanglongsheng@xm12t.com', '008759')
+# to = ['fanglongsheng@xm12t.com']
+# # body = 'nij'
+# # yag.send(to, subject=filename, contents=[body])
+# contents = 'hello'
+# yag.send(to, 'subject', contents)
 # In[37]:
 
 
@@ -252,7 +259,7 @@ print('运行时间(s)：', t2 - t1)
 # In[39]:
 
 
-# os.remove('新开部门新开.csv')
+os.remove('新开部门新开.csv')
 
 # In[40]:
 

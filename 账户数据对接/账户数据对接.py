@@ -29,7 +29,8 @@ t1 = time.time()
 
 
 galdi = pd.read_csv(r'消费对接(勿删).csv')
-# print(galdi.info())
+# print(galdi)
+
 
 # In[57]:
 
@@ -121,6 +122,7 @@ galdi['信息流消费'] = galdi['原生自主投放总消费' + quarterStr] - g
     '原生CPM优惠券消费' + quarterStr]
 
 # In[69]:
+# print(galdi)
 
 
 # 查看字段名

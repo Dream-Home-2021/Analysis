@@ -648,9 +648,8 @@ elif today.weekday() == 1 and today.day == 3:
 else:
     pred = today - dt.timedelta(1)
 
-filename = '{}年{}月份大搜客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
-                                                           (pred - dt.timedelta(1)).month,
-                                                           (pred - dt.timedelta(1)).strftime('%d'))
+filename = '{}年大搜客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
+                                                           (pred - dt.timedelta(1)).strftime('%m%d'))
 
 with pd.ExcelFile(path + filename) as ds_sheets:
     ds_ccm = pd.read_excel(ds_sheets, sheet_name=0, index_col=0)
@@ -704,13 +703,11 @@ ds_wb = sheetStyle(ds_ccm, ds_ccacm, '大搜消费表', '大搜有消费账户�
 
 
 if today.weekday() == 0 and today.day == 2:
-    filename = '{}年{}月份大搜客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(2)).strftime('%Y'),
-                                                               (today - dt.timedelta(2)).month,
-                                                               (today - dt.timedelta(2)).strftime('%d'))
+    filename = '{}年大搜客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(2)).strftime('%Y'),
+                                                               (today - dt.timedelta(2)).strftime('%m%d'))
 else:
-    filename = '{}年{}月份大搜客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(1)).strftime('%Y'),
-                                                               (today - dt.timedelta(1)).month,
-                                                               (today - dt.timedelta(1)).strftime('%d'))
+    filename = '{}年大搜客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(1)).strftime('%Y'),
+                                                               (today - dt.timedelta(1)).strftime('%m%d'))
 ds_wb.save(path + filename)
 
 # ## 信息流客户消费监控
@@ -778,9 +775,8 @@ elif today.weekday() == 1 and today.day == 3:
 else:
     pred = today - dt.timedelta(1)
 
-filename = '{}年{}月份信息流客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
-                                                             (pred - dt.timedelta(1)).month,
-                                                             (pred - dt.timedelta(1)).strftime('%d'))
+filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
+                                                             (pred - dt.timedelta(1)).strftime('%m%d'))
 
 with pd.ExcelFile(path + filename) as ds_sheets:
     infoPlow_ccm = pd.read_excel(ds_sheets, sheet_name=0, index_col=0)
@@ -820,13 +816,11 @@ infoPlow_wb = sheetStyle(infoPlow_ccm, infoPlow_ccacm, '信息流消费表', '�
 
 
 if today.weekday() == 0 and today.day == 2:
-    filename = '{}年{}月份信息流客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(2)).strftime('%Y'),
-                                                                 (today - dt.timedelta(2)).month,
-                                                                 (today - dt.timedelta(2)).strftime('%d'))
+    filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
+                                                           (pred).strftime('%m%d'))
 else:
-    filename = '{}年{}月份信息流客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(1)).strftime('%Y'),
-                                                                 (today - dt.timedelta(1)).month,
-                                                                 (today - dt.timedelta(1)).strftime('%d'))
+    filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
+                                                           (pred).strftime('%m%d'))
 infoPlow_wb.save(path + filename)
 
 # '''

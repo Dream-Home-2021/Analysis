@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[84]:
-
-
 import numpy as np
 import pandas as pd
 import warnings
@@ -307,7 +304,7 @@ sale_ncsm_wb.save(path2 + filename)
 # In[119]:
 
 
-# os.remove('未消费客户明细.csv')
+os.remove('未消费客户明细.csv')
 
 # In[120]:
 
