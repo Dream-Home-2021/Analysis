@@ -24,12 +24,6 @@ warnings.filterwarnings('ignore')
 # In[4]:
 
 
-# def searchStr(str):
-#     return re.search('失效( \(\d+\))?.csv',str)
-
-
-# In[5]:
-
 
 # fileList = list(filter(searchStr,os.listdir('E:\桌面\源数据')))
 
@@ -121,7 +115,6 @@ contacts.columns
 sourseData = pd.merge(contacts, sourseData, on='管理员', how='right')
 
 # In[20]:
-
 
 # sourseData.head()
 
