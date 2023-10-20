@@ -17,6 +17,11 @@ from openpyxl.formatting.formatting import ConditionalFormattingList
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
 import locale
 
+# 发证机关所在市-数据延迟，设置为0
+havecity = 1
+# 首次消费日期等-数据延迟，设置为0
+havetime = 1
+
 locale.setlocale(locale.LC_CTYPE, 'chinese')
 
 pd.set_option('display.max_rows', None)
@@ -55,7 +60,6 @@ print('data.shape:', data.shape)
 custId = [428789730, 427957367, 429271125, 429299394]
 manager = ['KOLXM02，xmk04', 'xmpinzhuan05', 'xmpinzhuan04', 'qzko1']
 city = ['厦门市', '泉州市', '厦门市', '厦门市']
-
 '''
 补全缺失的管理员和发证机关所在市
 '''
@@ -74,14 +78,15 @@ print('部门缺失数量:', data['管理员'].isnull().sum())
 '''
 匹配订单行
 '''
-order_city = pd.read_excel('订单行.xlsx', sheet_name='Sheet1', usecols=[1, 9])
-# order_city.head()
-data['订单行'] = 0
-for i in range(data.shape[0]):
-    if data['发证机关所在市'][i] not in ['厦门市', '泉州市', '漳州市', '龙岩市']:
-        for j in range(order_city.shape[0]):
-            if data['账户名称'][i] == order_city['账户名称'][j]:
-                data['订单行'][i] = order_city['订单行'][j] + '市'
+if havecity:
+    order_city = pd.read_excel('订单行.xlsx', sheet_name='Sheet1', usecols=[1, 9])
+    # order_city.head()
+    data['订单行'] = 0
+    for i in range(data.shape[0]):
+        if data['发证机关所在市'][i] not in ['厦门市', '泉州市', '漳州市', '龙岩市']:
+            for j in range(order_city.shape[0]):
+                if data['账户名称'][i] == order_city['账户名称'][j]:
+                    data['订单行'][i] = order_city['订单行'][j] + '市'
 
 # 匹配订单行优化方法
 
@@ -121,7 +126,7 @@ for d in range(1, 9):
     jr_total_csm_lb = '总消费{}（含聚软）'.format(d)
     jr_ds_csm_lb = '大搜{}（含聚软）'.format(d)
     # 转换时间格式
-    delta = today - dt.timedelta(9 - d)
+    delta = today- dt.timedelta(9 - d)
     s_delta = delta.strftime('%Y%m%d')
 
     #     csm_temp[ds_csm_lb] = csm_temp['总消费' + s_delta]  - csm_temp['原生自主投放总消费' + s_delta]  - csm_temp['凤巢优惠券消费' + s_delta] - csm_temp['聚屏平台合约消费' + s_delta] - csm_temp['软植互选消费' + s_delta] - csm_temp['度星选-软植互选-消费' + s_delta]- csm_temp['度星选-软植互选-CPT消费' + s_delta] - csm_temp['度星选-软植互选-打包消费' + s_delta]
@@ -189,9 +194,9 @@ csm_temp = pd.merge(csm_temp, department[['管理员', '部门', '组别']], on=
 def fillcity(str_):
     return re.findall('厦门|泉州|漳州|龙岩|云霄|德化', string=str_)
 
-
-orderBook = load_workbook(r'订单行.xlsx')
-orderSheet = orderBook.active
+if havecity:
+    orderBook = load_workbook(r'订单行.xlsx')
+    orderSheet = orderBook.active
 
 
 # ls = csm_temp.iloc[i,[0,1,2,4,5,7,8,11,12]]
@@ -219,86 +224,87 @@ print(len(csm_temp.columns.values))  # 121
 '''
 新增列-城市、企业、医疗
 '''
-startTime = time.time()
-csm_temp['城市&框架'] = ''
-csm_temp['城市'] = ''
-csm_temp['企业'] = ''
-csm_temp['医疗'] = ''
-city = ['厦门市', '泉州市', '漳州市', '龙岩市']
+if havecity:
+    startTime = time.time()
+    csm_temp['城市&框架'] = ''
+    csm_temp['城市'] = ''
+    csm_temp['企业'] = ''
+    csm_temp['医疗'] = ''
+    city = ['厦门市', '泉州市', '漳州市', '龙岩市']
 
-for i in range(csm_temp.shape[0]):
-    if csm_temp['部门'][i] == '框架':
-        csm_temp['城市&框架'][i] = '框架'
+    for i in range(csm_temp.shape[0]):
+        if csm_temp['部门'][i] == '框架':
+            csm_temp['城市&框架'][i] = '框架'
 
-        if csm_temp['发证机关所在市'][i] in city:
-            csm_temp['城市'][i] = csm_temp['发证机关所在市'][i]
-        else:
-            if csm_temp['订单行'][i] in city:
-                csm_temp['城市'][i] = csm_temp['订单行'][i]
+            if csm_temp['发证机关所在市'][i] in city:
+                csm_temp['城市'][i] = csm_temp['发证机关所在市'][i]
             else:
-                if csm_temp['订单行'][i] == 0:
-                    v = fillcity(csm_temp.iloc[i, 2])
-                    if v == []:
-                        csm_temp['城市'][i] = '厦门市'
-                        vc = '厦门'
-                    elif v[0] == '云霄':
-                        csm_temp['城市'][i] = '漳州市'
-                        vc = '漳州'
-                    else:
-                        csm_temp['城市'][i] = v[0] + '市'
-                        vc = v[0]
-                    print('核对：', csm_temp.loc[i, ['账户名称', '公司名称', '城市']].tolist())
-                    addOrder(vc, csm_temp.loc[
-                        i, ['账户ID', '账户名称', '公司名称', 'MEG账户一级行业（新）', 'MEG账户二级行业（新）',
-                            '发证机关所在市', '资质客户ID', 'SF对应二级账号', '管理员']])
+                if csm_temp['订单行'][i] in city:
+                    csm_temp['城市'][i] = csm_temp['订单行'][i]
                 else:
-                    csm_temp['城市'][i] = '其他市'
+                    if csm_temp['订单行'][i] == 0:
+                        v = fillcity(csm_temp.iloc[i, 2])
+                        if v == []:
+                            csm_temp['城市'][i] = '厦门市'
+                            vc = '厦门'
+                        elif v[0] == '云霄':
+                            csm_temp['城市'][i] = '漳州市'
+                            vc = '漳州'
+                        else:
+                            csm_temp['城市'][i] = v[0] + '市'
+                            vc = v[0]
+                        print('核对：', csm_temp.loc[i, ['账户名称', '公司名称', '城市']].tolist())
+                        addOrder(vc, csm_temp.loc[
+                            i, ['账户ID', '账户名称', '公司名称', 'MEG账户一级行业（新）', 'MEG账户二级行业（新）',
+                                '发证机关所在市', '资质客户ID', 'SF对应二级账号', '管理员']])
+                    else:
+                        csm_temp['城市'][i] = '其他市'
 
-    else:
-        if csm_temp['发证机关所在市'][i] in city:
-            csm_temp['城市&框架'][i] = csm_temp['发证机关所在市'][i]
-            csm_temp['城市'][i] = csm_temp['发证机关所在市'][i]
         else:
-            if csm_temp['订单行'][i] in city:
-                csm_temp['城市&框架'][i] = csm_temp['订单行'][i]
-                csm_temp['城市'][i] = csm_temp['订单行'][i]
+            if csm_temp['发证机关所在市'][i] in city:
+                csm_temp['城市&框架'][i] = csm_temp['发证机关所在市'][i]
+                csm_temp['城市'][i] = csm_temp['发证机关所在市'][i]
             else:
-                if csm_temp['订单行'][i] == 0:
-                    v = fillcity(csm_temp.iloc[i, 2])
-                    if v == []:
-                        csm_temp['城市'][i] = '厦门市'
-                        csm_temp['城市&框架'][i] = '厦门市'
-                        vc = '厦门'
-                    elif v[0] == '云霄':
-                        csm_temp['城市'][i] = '漳州市'
-                        csm_temp['城市&框架'][i] = '漳州市'
-                        vc = '漳州'
-                    elif v[0] == '德化':
-                        csm_temp['城市'][i] = '泉州市'
-                        csm_temp['城市&框架'][i] = '泉州市'
-                        vc = '泉州'
-                    else:
-                        csm_temp['城市'][i] = v[0] + '市'
-                        csm_temp['城市&框架'][i] = v[0] + '市'
-                        vc = v[0]
-                    print('核对：', csm_temp.loc[i, ['账户名称', '公司名称', '城市']].tolist())
-                    addOrder(vc, csm_temp.loc[
-                        i, ['账户ID', '账户名称', '公司名称', 'MEG账户一级行业（新）', 'MEG账户二级行业（新）',
-                            '发证机关所在市', '资质客户ID', 'SF对应二级账号', '管理员']])
+                if csm_temp['订单行'][i] in city:
+                    csm_temp['城市&框架'][i] = csm_temp['订单行'][i]
+                    csm_temp['城市'][i] = csm_temp['订单行'][i]
                 else:
-                    csm_temp['城市'][i] = '其他市'
-                    csm_temp['城市&框架'][i] = '其他市'
+                    if csm_temp['订单行'][i] == 0:
+                        v = fillcity(csm_temp.iloc[i, 2])
+                        if v == []:
+                            csm_temp['城市'][i] = '厦门市'
+                            csm_temp['城市&框架'][i] = '厦门市'
+                            vc = '厦门'
+                        elif v[0] == '云霄':
+                            csm_temp['城市'][i] = '漳州市'
+                            csm_temp['城市&框架'][i] = '漳州市'
+                            vc = '漳州'
+                        elif v[0] == '德化':
+                            csm_temp['城市'][i] = '泉州市'
+                            csm_temp['城市&框架'][i] = '泉州市'
+                            vc = '泉州'
+                        else:
+                            csm_temp['城市'][i] = v[0] + '市'
+                            csm_temp['城市&框架'][i] = v[0] + '市'
+                            vc = v[0]
+                        print('核对：', csm_temp.loc[i, ['账户名称', '公司名称', '城市']].tolist())
+                        addOrder(vc, csm_temp.loc[
+                            i, ['账户ID', '账户名称', '公司名称', 'MEG账户一级行业（新）', 'MEG账户二级行业（新）',
+                                '发证机关所在市', '资质客户ID', 'SF对应二级账号', '管理员']])
+                    else:
+                        csm_temp['城市'][i] = '其他市'
+                        csm_temp['城市&框架'][i] = '其他市'
 
-    if csm_temp['部门'][i] == '框架':
-        csm_temp['企业'][i] = 0
-    else:
-        csm_temp['企业'][i] = 1
-    if csm_temp['MEG账户一级行业（新）'][i] in ['医疗服务', '整形美容']:  #########################
-        csm_temp['医疗'][i] = 1
-    else:
-        csm_temp['医疗'][i] = 0
-endTime = time.time()
-print('新增列-城市、企业、医疗的执行时间(s)：', endTime - startTime)
+        if csm_temp['部门'][i] == '框架':
+            csm_temp['企业'][i] = 0
+        else:
+            csm_temp['企业'][i] = 1
+        if csm_temp['MEG账户一级行业（新）'][i] in ['医疗服务', '整形美容']:  #########################
+            csm_temp['医疗'][i] = 1
+        else:
+            csm_temp['医疗'][i] = 0
+    endTime = time.time()
+    print('新增列-城市、企业、医疗的执行时间(s)：', endTime - startTime)
 
 # 昨日消费
 csm_temp['总消费' + (today - dt.timedelta(1)).strftime('%Y%m%d')].sum()
@@ -313,9 +319,11 @@ csm_temp['信息流7日均'] = (csm_temp['信息流第2天消费'] + csm_temp['�
                            csm_temp['信息流第8天消费']) / 7
 
 # 日期转换
-csm_temp['账户首次消费日'] = csm_temp['账户首次消费日'].astype(np.datetime64)
-csm_temp['原生首次消费日'] = csm_temp['原生首次消费日'].astype(np.datetime64)
-csm_temp['账户最近消费日'] = csm_temp['账户最近消费日'].astype(np.datetime64)
+if havetime:
+    csm_temp['账户首次消费日'] = csm_temp['账户首次消费日'].astype(np.datetime64)
+    csm_temp['原生首次消费日'] = csm_temp['原生首次消费日'].replace(r'\N', None)
+    csm_temp['原生首次消费日'] = csm_temp['原生首次消费日'].astype(np.datetime64)
+    csm_temp['账户最近消费日'] = csm_temp['账户最近消费日'].astype(np.datetime64)
 
 filename = '消费数据' + dt.date.today().strftime('%Y%m%d') + '.xlsx'
 
@@ -360,7 +368,9 @@ def csmInspection(olddata, newdata):
         k = 1
     else:
         k = 0
+    # 前8天
     st = (today - dt.timedelta(8)).day
+    # 昨天
     et = (today - dt.timedelta(1 + k)).day
     print("1111", st, et)
 
@@ -542,8 +552,6 @@ def sheetStyle(df1, df2, shtname1, shtname2):
 
 
 # ## 大搜客户消费监控
-
-
 ds_csm_8_Part = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i + 1) for i in range(8)],
                                index=csm_temp['部门'],
                                aggfunc=np.sum, margins=0).reset_index()
@@ -927,214 +935,213 @@ infoPlow_wb.save(path + filename)
 
 # # 信息流监控
 
+if havecity:
+    # 信息流监控
+    infoPlow_csm_Monitor_Part = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
+                                               index=csm_temp['部门'],
+                                               aggfunc=np.sum, margins=1, margins_name='总计').reset_index()
+    infoPlow_csm_Monitor_Part.set_index('部门', inplace=True)
+
+    clm = ['第1天', '第2天', '第3天', '第4天', '第5天', '第6天', '第7天', '第8天']
+
+    infoPlow_csm_Monitor_Part.columns = clm
+
+    infoPlow_csm_Monitor_Part.loc['泉州中小企业增值部'] += infoPlow_csm_Monitor_Part.loc['泉州KOL部门']
+    infoPlow_csm_Monitor_Part.drop(['泉州KOL部门'], axis=0, inplace=True)
+
+    # infoPlow_csm_Monitor_Part
+
+
+    infoPlow_csm_Monitor_Part = infoPlow_csm_Monitor_Part.reindex(['大客部门', '品牌部', '泉州中小企业增值部', '失效挽救部',
+                                                                   '维护部门', '新开部门', '行发维护大区', '医疗事业部',
+                                                                   '漳州客服部',
+                                                                   '框架', '运营策略中心', '总计'])
+    infoPlow_csm_Monitor_Part.fillna(0, inplace=True)
+
+    # infoPlow_csm_Monitor_Part
+
+
+    infoPlow_csm_Monitor_Part.loc['总计'] -= infoPlow_csm_Monitor_Part.loc['框架']
+
+    infoPlow_csm_Monitor_Part = infoPlow_csm_Monitor_Part.T
+
+    # infoPlow_csm_Monitor_Part
+
+
+    infoPlow_count_Monitor_Part = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
+                                                 index=csm_temp['部门'],
+                                                 aggfunc=np.count_nonzero, margins=1, margins_name='总计').reset_index()
+
+    infoPlow_count_Monitor_Part.set_index('部门', inplace=True)
+
+    infoPlow_count_Monitor_Part.columns = clm
+
+    infoPlow_count_Monitor_Part.loc['泉州中小企业增值部'] += infoPlow_count_Monitor_Part.loc['泉州KOL部门']
+    infoPlow_count_Monitor_Part.drop(['泉州KOL部门'], axis=0, inplace=True)
+
+    infoPlow_count_Monitor_Part = infoPlow_count_Monitor_Part.reindex(
+        ['大客部门', '品牌部', '泉州中小企业增值部', '失效挽救部',
+         '维护部门', '新开部门', '行发维护大区', '医疗事业部', '漳州客服部',
+         '框架', '运营策略中心', '总计'])
+    infoPlow_count_Monitor_Part.fillna(0, inplace=True)
+
+    infoPlow_count_Monitor_Part.loc['总计'] -= infoPlow_count_Monitor_Part.loc['框架']
+
+    # infoPlow_count_Monitor_Part
+
+
+    infoPlow_count_Monitor_Part = infoPlow_count_Monitor_Part.T
+
+    infoPlow_mean_Monitor_Part = infoPlow_csm_Monitor_Part / infoPlow_count_Monitor_Part
+
+    infoPlow_mean_Monitor_Part.fillna(0, inplace=True)
+
+    # infoPlow_mean_Monitor_Part
+
+
+    Dept = ['大客部门', '品牌部', '泉州中小企业增值部', '失效挽救部', '维护部门', '新开部门', '行发维护大区', '医疗事业部',
+            '漳州客服部', '框架', '运营策略中心', '总计']
+
+    infoPlow_Monitor_Dept = pd.concat([pd.concat(
+        [infoPlow_csm_Monitor_Part[column], infoPlow_count_Monitor_Part[column], infoPlow_mean_Monitor_Part[column]],
+        keys=['feed竞价消费', 'feed竞价账户数', 'feed竞价户均'], axis=1)
+        for column in Dept], keys=Dept, axis=1)
+
+    infoPlow_Monitor_Dept.to_excel(r'缓存数据\infoPlow_Monitor_Dept.xlsx')
+    print('客户部门消费监控：', infoPlow_Monitor_Dept.round())
+
+    infoPlow_csm_Monitor_City = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
+                                               index=csm_temp['城市&框架'],
+                                               aggfunc=np.sum, margins=1, margins_name='企业总计').reset_index()
+    infoPlow_csm_Monitor_City.set_index('城市&框架', inplace=True)
+
+    infoPlow_csm_Monitor_City.columns = clm
+
+    infoPlow_csm_Monitor_City = infoPlow_csm_Monitor_City.reindex(
+        ['厦门市', '泉州市', '漳州市', '龙岩市', '框架', '其他市', '企业总计'])
+    infoPlow_csm_Monitor_City.loc['企业总计'] -= infoPlow_csm_Monitor_City.loc['框架']
+    infoPlow_csm_Monitor_City.fillna(0, inplace=True)
+    infoPlow_csm_Monitor_City = infoPlow_csm_Monitor_City.T
+
+    # infoPlow_csm_Monitor_City
+
+
+    infoPlow_count_Monitor_City = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
+                                                 index=csm_temp['城市&框架'],
+                                                 aggfunc=np.count_nonzero, margins=1, margins_name='企业总计').reset_index()
+    infoPlow_count_Monitor_City.set_index('城市&框架', inplace=True)
+    infoPlow_count_Monitor_City.columns = clm
+
+    infoPlow_count_Monitor_City = infoPlow_count_Monitor_City.reindex(
+        ['厦门市', '泉州市', '漳州市', '龙岩市', '框架', '其他市', '企业总计'])
+    infoPlow_count_Monitor_City.loc['企业总计'] -= infoPlow_count_Monitor_City.loc['框架']
+    infoPlow_count_Monitor_City.fillna(0, inplace=True)
+    infoPlow_count_Monitor_City = infoPlow_count_Monitor_City.T
+
+    # infoPlow_count_Monitor_City
+
+
+    infoPlow_mean_Monitor_City = infoPlow_csm_Monitor_City / infoPlow_count_Monitor_City
+
+    infoPlow_mean_Monitor_City.fillna(0, inplace=True)
+
+    # infoPlow_mean_Monitor_City
+
+
+    citys = ['厦门市', '泉州市', '漳州市', '龙岩市', '框架', '其他市', '企业总计']
+
+    infoPlow_Monitor_Citys = pd.concat([pd.concat(
+        [infoPlow_csm_Monitor_City[column], infoPlow_count_Monitor_City[column], infoPlow_mean_Monitor_City[column]],
+        keys=['feed竞价消费', 'feed竞价账户数', 'feed竞价户均'], axis=1) for column in citys], keys=citys, axis=1)
+
+    infoPlow_Monitor_Citys.to_excel(r'缓存数据\infoPlow_Monitor_Citys.xlsx')
+    print('分地区消费：', infoPlow_Monitor_Citys)
+
+    path = '信息流消费监控\\'
+    if today.weekday() == 0:
+        pred = today - dt.timedelta(2)
+        filename = str((pred - dt.timedelta(1)).month) + '月信息流消费监控-' + (pred - dt.timedelta(1)).strftime(
+            '%d') + '.xlsx'
+    else:
+        pred = today - dt.timedelta(1)
+        filename = str((pred - dt.timedelta(1)).month) + '月信息流消费监控-' + (pred - dt.timedelta(1)).strftime(
+            '%d') + '.xlsx'
+    infoPlow_Monitor_wb = load_workbook(path + filename)
+
+    # infoPlow_Monitor_wb = load_workbook('E:\\桌面\\日报\\信息流消费监控\\信息流消费监控.xlsx')
+
+
+    cstDept_csmMonitor = infoPlow_Monitor_wb['客服部门消费监控']
+    citys_csmMonitor = infoPlow_Monitor_wb['分地区消费']
+
+
+    def num2date(num):
+        return dt.date(1900, 1, 1) + dt.timedelta(num - 2)
+
+
+    # ## 客服部门消费监控
+
+
+    for date_index in cstDept_csmMonitor.iter_rows(min_row=3, max_row=cstDept_csmMonitor.max_row, max_col=1):
+        if date_index[0].value != None:
+            if today.weekday() == 0:
+                if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(2):
+                    rw = date_index[0].row
+                    adrw = 1
+            else:
+                if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(1):
+                    rw = date_index[0].row
+                    adrw = 0
+
+    for idx, sht_dept in enumerate(cstDept_csmMonitor[rw:rw + adrw]):
+        if adrw == 1:
+            for ix, cell in enumerate(sht_dept):
+                if ix >= 1 and ix <= 36:
+                    cell.value = infoPlow_Monitor_Dept.iloc[-2 + idx][ix - 1]
+        else:
+            if idx >= 1 and idx <= 36:
+                sht_dept.value = infoPlow_Monitor_Dept.iloc[-1][idx - 1]
+
+    # adrw=0  # 0|1
+    # for idx,sht_dept in enumerate(cstDept_csmMonitor[rw:rw+adrw]):
+    #     if adrw == 1:
+    #         print('idx:',idx)
+    #         for ix,cell in enumerate(sht_dept):
+    #             if ix >= 1 and ix <= 36:
+    #                 print(ix,"|",cell.value,"|",infoPlow_Monitor_Dept.iloc[-2+idx][ix-1])
+    #     else:
+    #         if idx >= 1 and idx <= 36:
+    #             print(idx,"|",sht_dept.value,"|",infoPlow_Monitor_Dept.iloc[-1][idx-1])
+
+
+    # ## 分地区消费
+
+
+    for date_index in citys_csmMonitor.iter_rows(min_row=3, max_row=citys_csmMonitor.max_row, max_col=1):
+        if date_index[0].value != None:
+            if today.weekday() == 0:
+                if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(2):
+                    rw = date_index[0].row
+                    adrw = 1
+            else:
+                if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(1):
+                    rw = date_index[0].row
+                    adrw = 0
+
+    for idx, sht_dept in enumerate(citys_csmMonitor[rw:rw + adrw]):
+        if adrw == 1:
+            for ix, cell in enumerate(sht_dept):
+                if ix >= 1 and ix <= 36:
+                    cell.value = infoPlow_Monitor_Citys.iloc[-2 + idx][ix - 1]
+        else:
+            if idx >= 1 and idx <= 36:
+                sht_dept.value = infoPlow_Monitor_Citys.iloc[-1][idx - 1]
+
+    filename = str((today - dt.timedelta(1)).month) + '月信息流消费监控-' + (today - dt.timedelta(1)).strftime(
+        '%d') + '.xlsx'
+    infoPlow_Monitor_wb.save(path + filename)
 
 # 大客部门,品牌部,泉州中小企业增值部,失效挽救部,维护部门,新开部门,发维护大区,医疗事业部,漳州客服部,框架,运营策略中心,总计
-
-
-# 信息流监控
-infoPlow_csm_Monitor_Part = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
-                                           index=csm_temp['部门'],
-                                           aggfunc=np.sum, margins=1, margins_name='总计').reset_index()
-infoPlow_csm_Monitor_Part.set_index('部门', inplace=True)
-
-clm = ['第1天', '第2天', '第3天', '第4天', '第5天', '第6天', '第7天', '第8天']
-
-infoPlow_csm_Monitor_Part.columns = clm
-
-infoPlow_csm_Monitor_Part.loc['泉州中小企业增值部'] += infoPlow_csm_Monitor_Part.loc['泉州KOL部门']
-infoPlow_csm_Monitor_Part.drop(['泉州KOL部门'], axis=0, inplace=True)
-
-# infoPlow_csm_Monitor_Part
-
-
-infoPlow_csm_Monitor_Part = infoPlow_csm_Monitor_Part.reindex(['大客部门', '品牌部', '泉州中小企业增值部', '失效挽救部',
-                                                               '维护部门', '新开部门', '行发维护大区', '医疗事业部',
-                                                               '漳州客服部',
-                                                               '框架', '运营策略中心', '总计'])
-infoPlow_csm_Monitor_Part.fillna(0, inplace=True)
-
-# infoPlow_csm_Monitor_Part
-
-
-infoPlow_csm_Monitor_Part.loc['总计'] -= infoPlow_csm_Monitor_Part.loc['框架']
-
-infoPlow_csm_Monitor_Part = infoPlow_csm_Monitor_Part.T
-
-# infoPlow_csm_Monitor_Part
-
-
-infoPlow_count_Monitor_Part = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
-                                             index=csm_temp['部门'],
-                                             aggfunc=np.count_nonzero, margins=1, margins_name='总计').reset_index()
-
-infoPlow_count_Monitor_Part.set_index('部门', inplace=True)
-
-infoPlow_count_Monitor_Part.columns = clm
-
-infoPlow_count_Monitor_Part.loc['泉州中小企业增值部'] += infoPlow_count_Monitor_Part.loc['泉州KOL部门']
-infoPlow_count_Monitor_Part.drop(['泉州KOL部门'], axis=0, inplace=True)
-
-infoPlow_count_Monitor_Part = infoPlow_count_Monitor_Part.reindex(
-    ['大客部门', '品牌部', '泉州中小企业增值部', '失效挽救部',
-     '维护部门', '新开部门', '行发维护大区', '医疗事业部', '漳州客服部',
-     '框架', '运营策略中心', '总计'])
-infoPlow_count_Monitor_Part.fillna(0, inplace=True)
-
-infoPlow_count_Monitor_Part.loc['总计'] -= infoPlow_count_Monitor_Part.loc['框架']
-
-# infoPlow_count_Monitor_Part
-
-
-infoPlow_count_Monitor_Part = infoPlow_count_Monitor_Part.T
-
-infoPlow_mean_Monitor_Part = infoPlow_csm_Monitor_Part / infoPlow_count_Monitor_Part
-
-infoPlow_mean_Monitor_Part.fillna(0, inplace=True)
-
-# infoPlow_mean_Monitor_Part
-
-
-Dept = ['大客部门', '品牌部', '泉州中小企业增值部', '失效挽救部', '维护部门', '新开部门', '行发维护大区', '医疗事业部',
-        '漳州客服部', '框架', '运营策略中心', '总计']
-
-infoPlow_Monitor_Dept = pd.concat([pd.concat(
-    [infoPlow_csm_Monitor_Part[column], infoPlow_count_Monitor_Part[column], infoPlow_mean_Monitor_Part[column]],
-    keys=['feed竞价消费', 'feed竞价账户数', 'feed竞价户均'], axis=1)
-    for column in Dept], keys=Dept, axis=1)
-
-infoPlow_Monitor_Dept.to_excel(r'缓存数据\infoPlow_Monitor_Dept.xlsx')
-print('客户部门消费监控：', infoPlow_Monitor_Dept.round())
-
-infoPlow_csm_Monitor_City = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
-                                           index=csm_temp['城市&框架'],
-                                           aggfunc=np.sum, margins=1, margins_name='企业总计').reset_index()
-infoPlow_csm_Monitor_City.set_index('城市&框架', inplace=True)
-
-infoPlow_csm_Monitor_City.columns = clm
-
-infoPlow_csm_Monitor_City = infoPlow_csm_Monitor_City.reindex(
-    ['厦门市', '泉州市', '漳州市', '龙岩市', '框架', '其他市', '企业总计'])
-infoPlow_csm_Monitor_City.loc['企业总计'] -= infoPlow_csm_Monitor_City.loc['框架']
-infoPlow_csm_Monitor_City.fillna(0, inplace=True)
-infoPlow_csm_Monitor_City = infoPlow_csm_Monitor_City.T
-
-# infoPlow_csm_Monitor_City
-
-
-infoPlow_count_Monitor_City = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i + 1) for i in range(8)],
-                                             index=csm_temp['城市&框架'],
-                                             aggfunc=np.count_nonzero, margins=1, margins_name='企业总计').reset_index()
-infoPlow_count_Monitor_City.set_index('城市&框架', inplace=True)
-infoPlow_count_Monitor_City.columns = clm
-
-infoPlow_count_Monitor_City = infoPlow_count_Monitor_City.reindex(
-    ['厦门市', '泉州市', '漳州市', '龙岩市', '框架', '其他市', '企业总计'])
-infoPlow_count_Monitor_City.loc['企业总计'] -= infoPlow_count_Monitor_City.loc['框架']
-infoPlow_count_Monitor_City.fillna(0, inplace=True)
-infoPlow_count_Monitor_City = infoPlow_count_Monitor_City.T
-
-# infoPlow_count_Monitor_City
-
-
-infoPlow_mean_Monitor_City = infoPlow_csm_Monitor_City / infoPlow_count_Monitor_City
-
-infoPlow_mean_Monitor_City.fillna(0, inplace=True)
-
-# infoPlow_mean_Monitor_City
-
-
-citys = ['厦门市', '泉州市', '漳州市', '龙岩市', '框架', '其他市', '企业总计']
-
-infoPlow_Monitor_Citys = pd.concat([pd.concat(
-    [infoPlow_csm_Monitor_City[column], infoPlow_count_Monitor_City[column], infoPlow_mean_Monitor_City[column]],
-    keys=['feed竞价消费', 'feed竞价账户数', 'feed竞价户均'], axis=1) for column in citys], keys=citys, axis=1)
-
-infoPlow_Monitor_Citys.to_excel(r'缓存数据\infoPlow_Monitor_Citys.xlsx')
-print('分地区消费：', infoPlow_Monitor_Citys)
-
-path = '信息流消费监控\\'
-if today.weekday() == 0:
-    pred = today - dt.timedelta(2)
-    filename = str((pred - dt.timedelta(1)).month) + '月信息流消费监控-' + (pred - dt.timedelta(1)).strftime(
-        '%d') + '.xlsx'
-else:
-    pred = today - dt.timedelta(1)
-    filename = str((pred - dt.timedelta(1)).month) + '月信息流消费监控-' + (pred - dt.timedelta(1)).strftime(
-        '%d') + '.xlsx'
-infoPlow_Monitor_wb = load_workbook(path + filename)
-
-# infoPlow_Monitor_wb = load_workbook('E:\\桌面\\日报\\信息流消费监控\\信息流消费监控.xlsx')
-
-
-cstDept_csmMonitor = infoPlow_Monitor_wb['客服部门消费监控']
-citys_csmMonitor = infoPlow_Monitor_wb['分地区消费']
-
-
-def num2date(num):
-    return dt.date(1900, 1, 1) + dt.timedelta(num - 2)
-
-
-# ## 客服部门消费监控
-
-
-for date_index in cstDept_csmMonitor.iter_rows(min_row=3, max_row=cstDept_csmMonitor.max_row, max_col=1):
-    if date_index[0].value != None:
-        if today.weekday() == 0:
-            if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(2):
-                rw = date_index[0].row
-                adrw = 1
-        else:
-            if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(1):
-                rw = date_index[0].row
-                adrw = 0
-
-for idx, sht_dept in enumerate(cstDept_csmMonitor[rw:rw + adrw]):
-    if adrw == 1:
-        for ix, cell in enumerate(sht_dept):
-            if ix >= 1 and ix <= 36:
-                cell.value = infoPlow_Monitor_Dept.iloc[-2 + idx][ix - 1]
-    else:
-        if idx >= 1 and idx <= 36:
-            sht_dept.value = infoPlow_Monitor_Dept.iloc[-1][idx - 1]
-
-# adrw=0  # 0|1
-# for idx,sht_dept in enumerate(cstDept_csmMonitor[rw:rw+adrw]):
-#     if adrw == 1:
-#         print('idx:',idx)
-#         for ix,cell in enumerate(sht_dept):
-#             if ix >= 1 and ix <= 36:
-#                 print(ix,"|",cell.value,"|",infoPlow_Monitor_Dept.iloc[-2+idx][ix-1])
-#     else:
-#         if idx >= 1 and idx <= 36:
-#             print(idx,"|",sht_dept.value,"|",infoPlow_Monitor_Dept.iloc[-1][idx-1])
-
-
-# ## 分地区消费
-
-
-for date_index in citys_csmMonitor.iter_rows(min_row=3, max_row=citys_csmMonitor.max_row, max_col=1):
-    if date_index[0].value != None:
-        if today.weekday() == 0:
-            if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(2):
-                rw = date_index[0].row
-                adrw = 1
-        else:
-            if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(1):
-                rw = date_index[0].row
-                adrw = 0
-
-for idx, sht_dept in enumerate(citys_csmMonitor[rw:rw + adrw]):
-    if adrw == 1:
-        for ix, cell in enumerate(sht_dept):
-            if ix >= 1 and ix <= 36:
-                cell.value = infoPlow_Monitor_Citys.iloc[-2 + idx][ix - 1]
-    else:
-        if idx >= 1 and idx <= 36:
-            sht_dept.value = infoPlow_Monitor_Citys.iloc[-1][idx - 1]
-
-filename = str((today - dt.timedelta(1)).month) + '月信息流消费监控-' + (today - dt.timedelta(1)).strftime(
-    '%d') + '.xlsx'
-infoPlow_Monitor_wb.save(path + filename)
 
 # # 年框
 
@@ -1345,899 +1352,953 @@ filename = '年框客户消费监控表' + (today - dt.timedelta(1)).strftime('%
 
 rebate_wb.save(path + filename)
 
-# # 季度消费监控
 
 
-# csm_temp = pd.read_excel('日报\数据源\消费数据20230608.xlsx')
 
-
-path = '季度任务监控\\'
-if today.weekday() == 0:
-    q = np.int32(np.floor(((today - dt.timedelta(3)).month - 1) / 3) + 1)
-    filename = '{}年Q{}季度任务监控总表-{}.xlsx'.format((today - dt.timedelta(3)).year, q,
-                                                        (today - dt.timedelta(3)).strftime('%m%d'))
-else:
-    q = np.int32(np.floor(((today - dt.timedelta(2)).month - 1) / 3) + 1)
-    filename = '{}年Q{}季度任务监控总表-{}.xlsx'.format((today - dt.timedelta(2)).year, q,
-                                                        (today - dt.timedelta(2)).strftime('%m%d'))
-Quarter_monitor_wb = load_workbook(path + filename)
-
-# Quarter_monitor_wb = load_workbook('E:\\桌面\\日报\\季度任务监控\\季度任务监控总表.xlsx')
-
-
-tcsm_sht = Quarter_monitor_wb['消费汇总']
-area_csm_sht = Quarter_monitor_wb['二级地市消费汇总']
-newOrder_sht = Quarter_monitor_wb['新单数据']
-potentialIndustries_sht = Quarter_monitor_wb['潜力行业']
-
-
-def getWriteRow(sheet, startRow):
-    for date_index in sheet.iter_rows(min_row=startRow, max_row=sheet.max_row, max_col=1):
-        if date_index[0].value != None:
-            if today.weekday() == 0:
-                if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(2):
-                    rw = date_index[0].row
-                    adrw = 1
-            else:
-                if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(1):
-                    rw = date_index[0].row
-                    adrw = 0
-    return rw, adrw
-
-
-def writeQuaterData(sheet, data, startcol, startDateRow):
-    rw, adrw = getWriteRow(sheet, startRow=startDateRow)
-    wlen = len(data.columns)
-    for idx, sheet_values in enumerate(sheet[rw:rw + adrw]):
-        if adrw == 1:
-            for ix, cell in enumerate(sheet_values):
-                if ix >= startcol - 1 and ix <= startcol + wlen - 2:  # 定位写入的列范围
-                    cell.value = data.iloc[-2 + idx][ix - startcol + 1]
-        else:
-            if idx >= startcol - 1 and idx <= startcol + wlen - 2:
-                sheet_values.value = data.iloc[-1][idx - startcol + 1]
-
-
-# ## 消费汇总
-
-# ### 汇总(企业+框架)
-
-
-medical_csm = pd.pivot_table(csm_temp, values=['总消费{}（含聚软）'.format(i) for i in range(1, 9)], index=['医疗'],
-                             aggfunc=np.sum)
-
-jr_total_csm = csm_temp[['总消费{}（含聚软）'.format(i) for i in range(1, 9)]].sum()
-
-jr_ds_csm = csm_temp[['大搜{}（含聚软）'.format(i) for i in range(1, 9)]].sum()
-
-infoPlow_csm = csm_temp[['信息流第{}天消费'.format(i) for i in range(1, 9)]].sum()
-
-
-# medical_csm
-# jr_total_csm
-# jr_ds_csm
-# infoPlow_csm
-
-
-def Serises2Dataframe(serises, colstr):
-    if isinstance(serises, pd.core.series.Series):
-        serises.index = clm
-        serises.name = colstr
-        return pd.DataFrame(serises)
-
-
-enterpriseAndFrame_colLab = ['总包', '大搜消费', '信息流消费', '医疗', '非医疗']
-enterpriseAndFrame_values = [jr_total_csm, jr_ds_csm, infoPlow_csm, medical_csm.loc[1, :], medical_csm.loc[0, :]]
-
-concatLt = list()
-for i in range(len(enterpriseAndFrame_colLab)):
-    df = Serises2Dataframe(enterpriseAndFrame_values[i], enterpriseAndFrame_colLab[i])
-    concatLt.append(df)
-enterpriseAndFrame_csm = pd.concat(concatLt, axis=1)
-
-enterpriseAndFrame_csm.to_excel(r'缓存数据\enterpriseAndFrame_csm.xlsx')
-print('汇总(企业+框架)：', enterpriseAndFrame_csm.round(0))
-
-writeQuaterData(tcsm_sht, enterpriseAndFrame_csm, startcol=2, startDateRow=7)
-
-# for c in tcsm_sht[getWriteRow(tcsm_sht,7)[0]]:
-#     print(c,c.value)
-
-
-# ### 企业汇总
-
-
-dlt = [(today - dt.timedelta(9 - d)).strftime('%Y%m%d') for d in range(1, 9)]
-
-varbLt = [['总消费第{}天'.format(i), '大搜第{}天消费'.format(i), '信息流第{}天消费'.format(i)] for i in range(1, 9)]
-varbLt.append(['品牌展示总消费{}'.format(i) for i in dlt])
-varbLt.append(['医疗', '企业'])
-
-# [j for i in varbLt for j in i]
-
-
-csm_temp[['企业', '医疗']] = csm_temp[['企业', '医疗']].astype(np.float32)
-
-# csm_temp['企业'].dtype
-
-
-custId_csm = pd.pivot_table(csm_temp, values=[j for i in varbLt for j in i], index=['资质客户ID'], aggfunc=np.sum)
-
-custId_csm['企业'] = custId_csm['企业'].apply(lambda x: 1 if x > 0 else 0)
-
-custId_csm['医疗'] = custId_csm['医疗'].apply(lambda x: 1 if x > 0 else 0)
-
-# custId_csm
-
-
-# 企业消费
-
-enterprise_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
-                                 aggfunc=np.sum).iloc[1, :]
-enterprise_tccont = pd.pivot_table(custId_csm, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
-                                   aggfunc=np.count_nonzero).iloc[1, :]
-
-enterprise_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)], index=['企业'],
-                                    aggfunc=np.sum).iloc[1, :]
-enterprise_ds_tccont = pd.pivot_table(custId_csm, values=['大搜第{}天消费'.format(i) for i in range(1, 9)],
-                                      index=['企业'], aggfunc=np.count_nonzero).iloc[1, :]
-
-enterprise_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
-                                          index=['企业'], aggfunc=np.sum).iloc[1, :]
-enterprise_infoFlow_tccont = pd.pivot_table(custId_csm, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
-                                            index=['企业'], aggfunc=np.count_nonzero).iloc[1, :]
-
-enterprise_medical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] > 0],
-                                         values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
-                                         aggfunc=np.sum).iloc[1, :]
-enterprise_medical_tccont = pd.pivot_table(custId_csm[custId_csm['企业'] > 0],
-                                           values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
-                                           aggfunc=np.count_nonzero).iloc[1, :]
-
-enterprise_nomedical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] > 0],
-                                           values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
-                                           aggfunc=np.sum).iloc[0, :]
-enterprise_nomedical_tccont = pd.pivot_table(custId_csm[custId_csm['企业'] > 0],
-                                             values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
-                                             aggfunc=np.count_nonzero).iloc[0, :]
-
-pp_tcsm = pd.pivot_table(csm_temp, values=['品牌展示总消费{}'.format(i) for i in dlt], index=['企业'],
-                         aggfunc=np.sum).iloc[1, :]
-pp_tccont = pd.pivot_table(custId_csm, values=['品牌展示总消费{}'.format(i) for i in dlt], index=['企业'],
-                           aggfunc=np.count_nonzero).iloc[1, :]
-
-Enterprise = [enterprise_tcsm,
-              enterprise_tccont,
-              enterprise_ds_tcsm,
-              enterprise_ds_tccont,
-              enterprise_infoFlow_tcsm,
-              enterprise_infoFlow_tccont,
-              enterprise_medical_tcsm,
-              enterprise_medical_tccont,
-              enterprise_nomedical_tcsm,
-              enterprise_nomedical_tccont,
-              pp_tcsm,
-              pp_tccont]
-
-tvLst = []
-for ep in range(len(Enterprise)):
-    if ep % 2 == 0:
-        #         print(ep)
-        v1 = Serises2Dataframe(Enterprise[ep], '消费')
-        v2 = Serises2Dataframe(Enterprise[ep + 1], '有消费客户数')
-        tv = pd.concat([v1, v2], axis=1)
-        tvLst.append(tv)
-
-enterpriseCsm = pd.concat(tvLst, axis=1, keys=['总包', '大搜', '信息流', '医疗', '非医疗', '品牌展示', '品牌展示'])
-
-enterpriseCsm.to_excel(r'缓存数据\enterpriseCsm.xlsx')
-print('企业汇总：', enterpriseCsm.round(0))
-
-writeQuaterData(tcsm_sht, enterpriseCsm, startcol=9, startDateRow=7)
-
-# for c in tcsm_sht[getWriteRow(tcsm_sht,8)]:
-#     print(c,c.value)
-
-
-# ### 框架汇总
-
-
-# 框架消费
-farme_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
-                            aggfunc=np.sum).iloc[0, :]
-
-farme_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)], index=['企业'],
-                               aggfunc=np.sum).iloc[0, :]
-
-farme_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
-                                     index=['企业'], aggfunc=np.sum).iloc[0, :]
-
-farme_medical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] == 0],
-                                    values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
-                                    aggfunc=np.sum).iloc[1, :]
-
-farme_nomedical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] == 0],
-                                      values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
-                                      aggfunc=np.sum).iloc[0, :]
-
-farmecsm_values = [farme_tcsm, farme_ds_tcsm, farme_infoFlow_tcsm, farme_medical_tcsm, farme_nomedical_tcsm]
-
-farmecsm_lab = ['总包', '大搜', '信息流', '医疗', '非医疗']
-
-for fc in range(len(farmecsm_lab)):
-    farmecsm_values[fc] = Serises2Dataframe(farmecsm_values[fc], farmecsm_lab[fc])
-
-farmeCsm = pd.concat(farmecsm_values, axis=1)
-
-farmeCsm.to_excel(r'缓存数据\farmeCsm.xlsx')
-print('框架汇总：', farmeCsm.round(0))
-
-writeQuaterData(tcsm_sht, farmeCsm, startcol=25, startDateRow=7)
-
-# for c in tcsm_sht[getWriteRow(tcsm_sht,8)[0]]:
-#     print(c,c.value)
-
-
-# ## 二级地级市消费汇总
-
-
-area_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['城市', '企业'],
-                           aggfunc=np.sum)
-area_tcsm_jr = pd.pivot_table(csm_temp, values=['总消费{}（含聚软）'.format(i) for i in range(1, 9)],
-                              index=['城市', '企业'], aggfunc=np.sum)
-
-# area_tcsm
-# area_tcsm_jr
-
-
-area_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)],
-                              index=['城市', '企业'], aggfunc=np.sum)
-
-area_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
-                                    index=['城市', '企业'], aggfunc=np.sum)
-
-area_medical_csm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)],
-                                  index=['城市', '企业', '医疗'], aggfunc=np.sum)
-
-area_ppzs_tcsm = pd.pivot_table(csm_temp, values=['品牌展示总消费{}'.format(i) for i in dlt], index=['城市', '企业'],
-                                aggfunc=np.sum)
-
-
-def concat_area_csm(c):
-    c1 = area_tcsm_jr.loc[c, 0] + area_tcsm_jr.loc[c, 1]
-    c1.index, c1.name = clm, '总包(企业+框架)'
-    c2 = area_tcsm.loc[c, 1]
-    c2.index, c2.name = clm, '总包'
-    c3 = area_ds_tcsm.loc[c, 1]
-    c3.index, c3.name = clm, '大搜'
-    c4 = area_infoFlow_tcsm.loc[c, 1]
-    c4.index, c4.name = clm, '信息流'
-    c5 = area_medical_csm.loc[c, 1, 1]
-    c5.index, c5.name = clm, '医疗'
-    c6 = area_medical_csm.loc[c, 1, 0]
-    c6.index, c6.name = clm, '非医疗'
-    c7 = area_ppzs_tcsm.loc[c, 1]
-    c7.index, c7.name = clm, '品牌展示'
-    c8 = area_tcsm_jr.loc[c, 0]
-    c8.index, c8.name = clm, '框架'
-    return pd.concat([c1, c2, c3, c4, c5, c6, c7, c8], axis=1)
-
-
-concat_area_csm('厦门市').to_excel(r'缓存数据\concat_area_csm_xm.xlsx')
-print('二级地级市消费汇总-厦门：', concat_area_csm('厦门市').round(0))
-
-concat_area_csm('泉州市').to_excel(r'缓存数据\concat_area_csm_qz.xlsx')
-print('二级地级市消费汇总-泉州：', concat_area_csm('泉州市').round(0))
-
-concat_area_csm('漳州市').to_excel(r'缓存数据\concat_area_csm_zz.xlsx')
-print('二级地级市消费汇总-漳州：', concat_area_csm('漳州市').round(0))
-
-concat_area_csm('龙岩市').to_excel(r'缓存数据\concat_area_csm_ly.xlsx')
-print('二级地级市消费汇总-龙岩：', concat_area_csm('龙岩市').round())
-
-# city = ['厦门市','泉州市','漳州市','龙岩市']
-
-
-for i in range(len(city)):
-    startcl = 2 + i * 10
-    writeQuaterData(sheet=area_csm_sht, data=concat_area_csm(city[i]), startcol=startcl, startDateRow=8)
-
-
-# for c in area_csm_sht[getWriteRow(area_csm_sht,8)[0]]:
-#     print(c.value,c)
-
-
-# ## 新单数据
-
-
+#
+# # # 季度消费监控
+#
+#
+# # csm_temp = pd.read_excel('日报\数据源\消费数据20230608.xlsx')
+#
+#
+# path = '季度任务监控\\'
+# if today.weekday() == 0:
+#     q = np.int32(np.floor(((today - dt.timedelta(3)).month - 1) / 3) + 1)
+#     filename = '{}年Q{}季度任务监控总表-{}.xlsx'.format((today - dt.timedelta(3)).year, q,
+#                                                         (today - dt.timedelta(3)).strftime('%m%d'))
+# else:
+#     q = np.int32(np.floor(((today - dt.timedelta(2)).month - 1) / 3) + 1)
+#     filename = '{}年Q{}季度任务监控总表-{}.xlsx'.format((today - dt.timedelta(2)).year, q,
+#                                                         (today - dt.timedelta(2)).strftime('%m%d'))
+# Quarter_monitor_wb = load_workbook(path + filename)
+#
+# # Quarter_monitor_wb = load_workbook('E:\\桌面\\日报\\季度任务监控\\季度任务监控总表.xlsx')
+#
+#
+# tcsm_sht = Quarter_monitor_wb['消费汇总']
+# area_csm_sht = Quarter_monitor_wb['二级地市消费汇总']
+# newOrder_sht = Quarter_monitor_wb['新单数据']
+# potentialIndustries_sht = Quarter_monitor_wb['潜力行业']
+#
+#
+# def getWriteRow(sheet, startRow):
+#     for date_index in sheet.iter_rows(min_row=startRow, max_row=sheet.max_row, max_col=1):
+#         if date_index[0].value != None:
+#             if today.weekday() == 0:
+#                 if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(2):
+#                     rw = date_index[0].row
+#                     adrw = 1
+#             else:
+#                 if num2date(date_index[0].value) == dt.date(today.year, today.month, today.day) - dt.timedelta(1):
+#                     rw = date_index[0].row
+#                     adrw = 0
+#     return rw, adrw
+#
+#
+# def writeQuaterData(sheet, data, startcol, startDateRow):
+#     rw, adrw = getWriteRow(sheet, startRow=startDateRow)
+#     wlen = len(data.columns)
+#     for idx, sheet_values in enumerate(sheet[rw:rw + adrw]):
+#         if adrw == 1:
+#             for ix, cell in enumerate(sheet_values):
+#                 if ix >= startcol - 1 and ix <= startcol + wlen - 2:  # 定位写入的列范围
+#                     cell.value = data.iloc[-2 + idx][ix - startcol + 1]
+#         else:
+#             if idx >= startcol - 1 and idx <= startcol + wlen - 2:
+#                 sheet_values.value = data.iloc[-1][idx - startcol + 1]
+#
+#
+# # ## 消费汇总
+#
+# # ### 汇总(企业+框架)
+#
+#
+# medical_csm = pd.pivot_table(csm_temp, values=['总消费{}（含聚软）'.format(i) for i in range(1, 9)], index=['医疗'],
+#                              aggfunc=np.sum)
+#
+# jr_total_csm = csm_temp[['总消费{}（含聚软）'.format(i) for i in range(1, 9)]].sum()
+#
+# jr_ds_csm = csm_temp[['大搜{}（含聚软）'.format(i) for i in range(1, 9)]].sum()
+#
+# infoPlow_csm = csm_temp[['信息流第{}天消费'.format(i) for i in range(1, 9)]].sum()
+#
+#
+# # medical_csm
+# # jr_total_csm
+# # jr_ds_csm
+# # infoPlow_csm
+#
+#
+# def Serises2Dataframe(serises, colstr):
+#     if isinstance(serises, pd.core.series.Series):
+#         serises.index = clm
+#         serises.name = colstr
+#         return pd.DataFrame(serises)
+#
+#
+# enterpriseAndFrame_colLab = ['总包', '大搜消费', '信息流消费', '医疗', '非医疗']
+# enterpriseAndFrame_values = [jr_total_csm, jr_ds_csm, infoPlow_csm, medical_csm.loc[1, :], medical_csm.loc[0, :]]
+#
+# concatLt = list()
+# for i in range(len(enterpriseAndFrame_colLab)):
+#     df = Serises2Dataframe(enterpriseAndFrame_values[i], enterpriseAndFrame_colLab[i])
+#     concatLt.append(df)
+# enterpriseAndFrame_csm = pd.concat(concatLt, axis=1)
+#
+# enterpriseAndFrame_csm.to_excel(r'缓存数据\enterpriseAndFrame_csm.xlsx')
+# print('汇总(企业+框架)：', enterpriseAndFrame_csm.round(0))
+#
+# writeQuaterData(tcsm_sht, enterpriseAndFrame_csm, startcol=2, startDateRow=7)
+#
+# # for c in tcsm_sht[getWriteRow(tcsm_sht,7)[0]]:
+# #     print(c,c.value)
+#
+#
+# # ### 企业汇总
+#
+#
+# dlt = [(today - dt.timedelta(9 - d)).strftime('%Y%m%d') for d in range(1, 9)]
+#
+# varbLt = [['总消费第{}天'.format(i), '大搜第{}天消费'.format(i), '信息流第{}天消费'.format(i)] for i in range(1, 9)]
+# varbLt.append(['品牌展示总消费{}'.format(i) for i in dlt])
+# varbLt.append(['医疗', '企业'])
+#
+# # [j for i in varbLt for j in i]
+#
+#
+# csm_temp[['企业', '医疗']] = csm_temp[['企业', '医疗']].astype(np.float32)
+#
+# # csm_temp['企业'].dtype
+#
+#
+# custId_csm = pd.pivot_table(csm_temp, values=[j for i in varbLt for j in i], index=['资质客户ID'], aggfunc=np.sum)
+#
+# custId_csm['企业'] = custId_csm['企业'].apply(lambda x: 1 if x > 0 else 0)
+#
+# custId_csm['医疗'] = custId_csm['医疗'].apply(lambda x: 1 if x > 0 else 0)
+#
+# # custId_csm
+#
+#
+# # 企业消费
+#
+# enterprise_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
+#                                  aggfunc=np.sum).iloc[1, :]
+# enterprise_tccont = pd.pivot_table(custId_csm, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
+#                                    aggfunc=np.count_nonzero).iloc[1, :]
+#
+# enterprise_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)], index=['企业'],
+#                                     aggfunc=np.sum).iloc[1, :]
+# enterprise_ds_tccont = pd.pivot_table(custId_csm, values=['大搜第{}天消费'.format(i) for i in range(1, 9)],
+#                                       index=['企业'], aggfunc=np.count_nonzero).iloc[1, :]
+#
+# enterprise_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
+#                                           index=['企业'], aggfunc=np.sum).iloc[1, :]
+# enterprise_infoFlow_tccont = pd.pivot_table(custId_csm, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
+#                                             index=['企业'], aggfunc=np.count_nonzero).iloc[1, :]
+#
+# enterprise_medical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] > 0],
+#                                          values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
+#                                          aggfunc=np.sum).iloc[1, :]
+# enterprise_medical_tccont = pd.pivot_table(custId_csm[custId_csm['企业'] > 0],
+#                                            values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
+#                                            aggfunc=np.count_nonzero).iloc[1, :]
+#
+# enterprise_nomedical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] > 0],
+#                                            values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
+#                                            aggfunc=np.sum).iloc[0, :]
+# enterprise_nomedical_tccont = pd.pivot_table(custId_csm[custId_csm['企业'] > 0],
+#                                              values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
+#                                              aggfunc=np.count_nonzero).iloc[0, :]
+#
+# pp_tcsm = pd.pivot_table(csm_temp, values=['品牌展示总消费{}'.format(i) for i in dlt], index=['企业'],
+#                          aggfunc=np.sum).iloc[1, :]
+# pp_tccont = pd.pivot_table(custId_csm, values=['品牌展示总消费{}'.format(i) for i in dlt], index=['企业'],
+#                            aggfunc=np.count_nonzero).iloc[1, :]
+#
+# Enterprise = [enterprise_tcsm,
+#               enterprise_tccont,
+#               enterprise_ds_tcsm,
+#               enterprise_ds_tccont,
+#               enterprise_infoFlow_tcsm,
+#               enterprise_infoFlow_tccont,
+#               enterprise_medical_tcsm,
+#               enterprise_medical_tccont,
+#               enterprise_nomedical_tcsm,
+#               enterprise_nomedical_tccont,
+#               pp_tcsm,
+#               pp_tccont]
+#
+# tvLst = []
+# for ep in range(len(Enterprise)):
+#     if ep % 2 == 0:
+#         #         print(ep)
+#         v1 = Serises2Dataframe(Enterprise[ep], '消费')
+#         v2 = Serises2Dataframe(Enterprise[ep + 1], '有消费客户数')
+#         tv = pd.concat([v1, v2], axis=1)
+#         tvLst.append(tv)
+#
+# enterpriseCsm = pd.concat(tvLst, axis=1, keys=['总包', '大搜', '信息流', '医疗', '非医疗', '品牌展示', '品牌展示'])
+#
+# enterpriseCsm.to_excel(r'缓存数据\enterpriseCsm.xlsx')
+# print('企业汇总：', enterpriseCsm.round(0))
+#
+# writeQuaterData(tcsm_sht, enterpriseCsm, startcol=9, startDateRow=7)
+#
+# # for c in tcsm_sht[getWriteRow(tcsm_sht,8)]:
+# #     print(c,c.value)
+#
+#
+# # ### 框架汇总
+#
+#
+# # 框架消费
+# farme_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
+#                             aggfunc=np.sum).iloc[0, :]
+#
+# farme_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)], index=['企业'],
+#                                aggfunc=np.sum).iloc[0, :]
+#
+# farme_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
+#                                      index=['企业'], aggfunc=np.sum).iloc[0, :]
+#
+# farme_medical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] == 0],
+#                                     values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
+#                                     aggfunc=np.sum).iloc[1, :]
+#
+# farme_nomedical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] == 0],
+#                                       values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
+#                                       aggfunc=np.sum).iloc[0, :]
+#
+# farmecsm_values = [farme_tcsm, farme_ds_tcsm, farme_infoFlow_tcsm, farme_medical_tcsm, farme_nomedical_tcsm]
+#
+# farmecsm_lab = ['总包', '大搜', '信息流', '医疗', '非医疗']
+#
+# for fc in range(len(farmecsm_lab)):
+#     farmecsm_values[fc] = Serises2Dataframe(farmecsm_values[fc], farmecsm_lab[fc])
+#
+# farmeCsm = pd.concat(farmecsm_values, axis=1)
+#
+# farmeCsm.to_excel(r'缓存数据\farmeCsm.xlsx')
+# print('框架汇总：', farmeCsm.round(0))
+#
+# writeQuaterData(tcsm_sht, farmeCsm, startcol=25, startDateRow=7)
+#
+# # for c in tcsm_sht[getWriteRow(tcsm_sht,8)[0]]:
+# #     print(c,c.value)
+#
+#
+# # ## 二级地级市消费汇总
+#
+#
+# area_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['城市', '企业'],
+#                            aggfunc=np.sum)
+# area_tcsm_jr = pd.pivot_table(csm_temp, values=['总消费{}（含聚软）'.format(i) for i in range(1, 9)],
+#                               index=['城市', '企业'], aggfunc=np.sum)
+#
+# # area_tcsm
+# # area_tcsm_jr
+#
+#
+# area_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)],
+#                               index=['城市', '企业'], aggfunc=np.sum)
+#
+# area_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
+#                                     index=['城市', '企业'], aggfunc=np.sum)
+#
+# area_medical_csm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)],
+#                                   index=['城市', '企业', '医疗'], aggfunc=np.sum)
+#
+# area_ppzs_tcsm = pd.pivot_table(csm_temp, values=['品牌展示总消费{}'.format(i) for i in dlt], index=['城市', '企业'],
+#                                 aggfunc=np.sum)
+#
+#
+# def concat_area_csm(c):
+#     c1 = area_tcsm_jr.loc[c, 0] + area_tcsm_jr.loc[c, 1]
+#     c1.index, c1.name = clm, '总包(企业+框架)'
+#     c2 = area_tcsm.loc[c, 1]
+#     c2.index, c2.name = clm, '总包'
+#     c3 = area_ds_tcsm.loc[c, 1]
+#     c3.index, c3.name = clm, '大搜'
+#     c4 = area_infoFlow_tcsm.loc[c, 1]
+#     c4.index, c4.name = clm, '信息流'
+#     c5 = area_medical_csm.loc[c, 1, 1]
+#     c5.index, c5.name = clm, '医疗'
+#     c6 = area_medical_csm.loc[c, 1, 0]
+#     c6.index, c6.name = clm, '非医疗'
+#     c7 = area_ppzs_tcsm.loc[c, 1]
+#     c7.index, c7.name = clm, '品牌展示'
+#     c8 = area_tcsm_jr.loc[c, 0]
+#     c8.index, c8.name = clm, '框架'
+#     return pd.concat([c1, c2, c3, c4, c5, c6, c7, c8], axis=1)
+#
+#
+# concat_area_csm('厦门市').to_excel(r'缓存数据\concat_area_csm_xm.xlsx')
+# print('二级地级市消费汇总-厦门：', concat_area_csm('厦门市').round(0))
+#
+# concat_area_csm('泉州市').to_excel(r'缓存数据\concat_area_csm_qz.xlsx')
+# print('二级地级市消费汇总-泉州：', concat_area_csm('泉州市').round(0))
+#
+# concat_area_csm('漳州市').to_excel(r'缓存数据\concat_area_csm_zz.xlsx')
+# print('二级地级市消费汇总-漳州：', concat_area_csm('漳州市').round(0))
+#
+# concat_area_csm('龙岩市').to_excel(r'缓存数据\concat_area_csm_ly.xlsx')
+# print('二级地级市消费汇总-龙岩：', concat_area_csm('龙岩市').round())
+#
+# # city = ['厦门市','泉州市','漳州市','龙岩市']
+#
+#
+# for i in range(len(city)):
+#     startcl = 2 + i * 10
+#     writeQuaterData(sheet=area_csm_sht, data=concat_area_csm(city[i]), startcol=startcl, startDateRow=8)
+#
+#
+# # for c in area_csm_sht[getWriteRow(area_csm_sht,8)[0]]:
+# #     print(c.value,c)
+#
+#
+# # ## 新单数据
+#
+#
+# # def QstarMon(date=today):
+# #     q = np.int32(np.floor(((date - dt.timedelta(1)).month - 1) / 3) + 1)
+# #     qstarm = (q - 1) * 3 + 1
+# #     return qstarm
+#
 # def QstarMon(date=today):
-#     q = np.int32(np.floor(((date - dt.timedelta(1)).month - 1) / 3) + 1)
+#     q = np.int32(np.floor(((date).month - 1) / 3) + 1)
 #     qstarm = (q - 1) * 3 + 1
 #     return qstarm
-
-def QstarMon(date=today):
-    q = np.int32(np.floor(((date).month - 1) / 3) + 1)
-    qstarm = (q - 1) * 3 + 1
-    return qstarm
-
-
-# QstarMon()
-
-
-def dict2dataframe(dict_neworder):
-    newDict = dict()
-    for ct in city:
-        newDict[ct] = dict_neworder(ct)[ct]
-    return pd.DataFrame(newDict, index=clm)
-
-
-def newOrderCount(cityStr):
-    cntLt = list()
-    for i in range(1, 9):
-        d = today - dt.timedelta(i)
-        cnt = csm_temp[(csm_temp['账户首次消费日'] == dt.datetime(d.year, d.month, d.day))
-                       & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
-                csm_temp['运营单位账户属性'] == '老户新开'))
-                       & (csm_temp['城市&框架'] == cityStr)]['账户ID'].count()
-        cntLt.insert(0, cnt)
-    return {cityStr: cntLt}
-
-
-# def newOrderCsm(cityStr):
-#     csmLt = list()
-#     for i in range(1,9):
-#         csm = csm_temp[(csm_temp['账户首次消费日']>=dt.datetime((today-dt.timedelta(1)).year,QstarMon(today-dt.timedelta(1)),1)) 
-#                                   & ((csm_temp['运营单位账户属性']=='首次上线新客户')|(csm_temp['运营单位账户属性']=='老户新开')) 
-#                                   & (csm_temp['城市&框架']==cityStr)]['总消费第{}天'.format(i)].sum()
-#         csmLt.append(csm)
-#     return {cityStr:csmLt}
-
-
+#
+#
+# # QstarMon()
+#
+#
+# def dict2dataframe(dict_neworder):
+#     newDict = dict()
+#     for ct in city:
+#         newDict[ct] = dict_neworder(ct)[ct]
+#     return pd.DataFrame(newDict, index=clm)
+#
+#
+# def newOrderCount(cityStr):
+#     cntLt = list()
+#     for i in range(1, 9):
+#         d = today - dt.timedelta(i)
+#         cnt = csm_temp[(csm_temp['账户首次消费日'] == dt.datetime(d.year, d.month, d.day))
+#                        & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
+#                 csm_temp['运营单位账户属性'] == '老户新开'))
+#                        & (csm_temp['城市&框架'] == cityStr)]['账户ID'].count()
+#         cntLt.insert(0, cnt)
+#     return {cityStr: cntLt}
+#
+#
+# # def newOrderCsm(cityStr):
+# #     csmLt = list()
+# #     for i in range(1,9):
+# #         csm = csm_temp[(csm_temp['账户首次消费日']>=dt.datetime((today-dt.timedelta(1)).year,QstarMon(today-dt.timedelta(1)),1))
+# #                                   & ((csm_temp['运营单位账户属性']=='首次上线新客户')|(csm_temp['运营单位账户属性']=='老户新开'))
+# #                                   & (csm_temp['城市&框架']==cityStr)]['总消费第{}天'.format(i)].sum()
+# #         csmLt.append(csm)
+# #     return {cityStr:csmLt}
+#
+#
+# # def newOrderCsm(cityStr):
+# #     custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
+# #                                                                  QstarMon(today - dt.timedelta(1)), 1))
+# #                       & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
+# #             csm_temp['运营单位账户属性'] == '老户新开'))
+# #                       & (csm_temp['城市&框架'] == cityStr)]['资质客户ID'].drop_duplicates()
+# #
+# #
+# #     companyCsm = pd.merge(csm_temp, custID, on='资质客户ID', how='right')
+# #     company8csm = pd.pivot_table(companyCsm, values=['总消费第{}天'.format(i) for i in range(1, 9)],
+# #                                  index=['资质客户ID'], aggfunc=np.sum, margins=True).iloc[-1, :]
+# #     company8csm.index = clm
+# #     return company8csm
 # def newOrderCsm(cityStr):
 #     custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
 #                                                                  QstarMon(today - dt.timedelta(1)), 1))
 #                       & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
 #             csm_temp['运营单位账户属性'] == '老户新开'))
-#                       & (csm_temp['城市&框架'] == cityStr)]['资质客户ID'].drop_duplicates()
+#                       & (csm_temp['城市&框架'] == cityStr) & (csm_temp['部门'] != '框架')].drop_duplicates()
 #
-#
-#     companyCsm = pd.merge(csm_temp, custID, on='资质客户ID', how='right')
-#     company8csm = pd.pivot_table(companyCsm, values=['总消费第{}天'.format(i) for i in range(1, 9)],
-#                                  index=['资质客户ID'], aggfunc=np.sum, margins=True).iloc[-1, :]
+#     company8csm = pd.pivot_table(custID, values=['总消费第{}天'.format(i) for i in range(1, 9)],
+#                                  index=['账户名称'], aggfunc=np.sum, margins=True).iloc[-1, :]
 #     company8csm.index = clm
+#     print("45487", company8csm)
+#
 #     return company8csm
-def newOrderCsm(cityStr):
-    custID = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
-                                                                 QstarMon(today - dt.timedelta(1)), 1))
-                      & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
-            csm_temp['运营单位账户属性'] == '老户新开'))
-                      & (csm_temp['城市&框架'] == cityStr) & (csm_temp['部门'] != '框架')].drop_duplicates()
-
-    company8csm = pd.pivot_table(custID, values=['总消费第{}天'.format(i) for i in range(1, 9)],
-                                 index=['账户名称'], aggfunc=np.sum, margins=True).iloc[-1, :]
-    company8csm.index = clm
-    return company8csm
-
-
-def inflowNewOrderCount(cityStr):
-    inflowCntLt = list()
-    for i in range(1, 9):
-        d = today - dt.timedelta(i)
-        inflowCnt = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
-                                                                        QstarMon(today - dt.timedelta(1)), 1)) & (
-                                     csm_temp['原生首次消费日'] == dt.datetime(d.year, d.month, d.day))
-                             & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
-                csm_temp['运营单位账户属性'] == '老户新开'))
-                             & (csm_temp['城市&框架'] == cityStr)]['账户ID'].count()
-        inflowCntLt.insert(0, inflowCnt)
-    return {cityStr: inflowCntLt}
-
-
-#  判断老客户新开
-
-csm_temp['判断日期'] = np.nan
-
-for i in range(csm_temp.shape[0]):
-    if pd.notnull(csm_temp['账户首次消费日'][i]):
-        # 表示所在季度的首月月份,即当季度首次消费的账户作为判断
-        csm_temp['判断日期'][i] = dt.date(csm_temp['账户首次消费日'][i].year, QstarMon(csm_temp['账户首次消费日'][i]),
-                                          1)
-
-# ******************************************************
-if today.weekday() == 0:  # 周一
-    t = 2  # 查看时间区间，判断老客户的时间区间
-else:
-    t = 1
-# ******************************************************
-# 特殊时间需更改，表示1年前同季度的首月
-judgeDate = dt.date((today - dt.timedelta(t)).year, QstarMon(today - dt.timedelta(t)), 1)  ##########
-
-# 表示账户首次消费日期1年前同季度之前或者账户首次消费日期为空
-# PreQcsm_acct = csm_temp[((csm_temp['判断日期'] < judgeDate) | (pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
-PreQcsm_acct = csm_temp[((csm_temp['部门'] != '框架') & (csm_temp['判断日期'] < judgeDate) | (
-    pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
-loss = csm_temp[
-    (csm_temp['判断日期'] == judgeDate) & (csm_temp['运营单位账户属性'] == '一户多开') & (csm_temp['部门'] != '框架')]
-PreQcsm_acct = pd.concat([PreQcsm_acct, loss])
-During4Q = pd.read_excel(r'2022Q3-2023Q2.xlsx')  # 每个季度需要更换此数据表
-
-# PreQcsm_acct['总消费'] = 0 
-# for p in range(PreQcsm_acct.shape[0]):
-#     for d in range(During4Q.shape[0]):
-#         if PreQcsm_acct['账户ID'][p] == During4Q['账户ID'][d]:
-#             PreQcsm_acct['总消费'][p] = During4Q['总包消费'][d]
-
-custidCsm = During4Q.pivot_table(values='总包消费', index='资质客户ID', aggfunc=np.sum).reset_index()
-
-# 计算 PreQcsm_acct 的账户（客户） 在During4Q的消费，为空（0）就表示该账户（客户）在前一年都未消费，即老户新开
-PreQcsm_acct = pd.merge(PreQcsm_acct, During4Q[['账户ID', '总包消费']], on='账户ID', how='left')
-PreQcsm_acct = pd.merge(PreQcsm_acct, custidCsm[['资质客户ID', '总包消费']], on='资质客户ID', how='left',
-                        suffixes=('_账户', '_客户'))
-
-lt = ['账户ID', '账户名称', '公司名称', '资质客户ID', '运营单位账户属性', '账户首次消费日', '账户最近消费日', '城市',
-      '企业']
-lt.extend(['总消费第{}天'.format(i) for i in range(1, 9)])
-
-# 存在个别公司后续改资质客户ID的现象，导致新的资质总消费为0，所以也要保证账户消费为0
-pca = PreQcsm_acct[
-    pd.isnull(PreQcsm_acct['总包消费_账户']) & pd.isnull(PreQcsm_acct['总包消费_客户']) & PreQcsm_acct['企业'] == 1][
-    lt].reset_index(drop=True)
-
-# for p in range(pca.shape[0]):
-#     for c in range(custidCsm.shape[0]):
-#         if pca['资质客户ID'][p] == custidCsm['资质客户ID'][c]:
-#             pca['总消费'][p] = custidCsm['总消费'][c]
-
-
-# 间隔4季度未消费的老客户定义为新客户
-pca.to_excel(r'缓存数据\pca.xlsx')
-print('间隔4季度未消费的老客户定义为新客户：', pca)
-
-print('老户新开客户数：', pca['资质客户ID'].unique().shape[0])
-
-# if dt.datetime.weekday == 0: # 周一
-#     t = 2 # 查看时间区间
+#
+#
+# def inflowNewOrderCount(cityStr):
+#     inflowCntLt = list()
+#     for i in range(1, 9):
+#         d = today - dt.timedelta(i)
+#         inflowCnt = csm_temp[(csm_temp['账户首次消费日'] >= dt.datetime((today - dt.timedelta(1)).year,
+#                                                                         QstarMon(today - dt.timedelta(1)), 1)) & (
+#                                      csm_temp['原生首次消费日'] == dt.datetime(d.year, d.month, d.day))
+#                              & ((csm_temp['运营单位账户属性'] == '首次上线新客户') | (
+#                 csm_temp['运营单位账户属性'] == '老户新开'))
+#                              & (csm_temp['城市&框架'] == cityStr)]['账户ID'].count()
+#         inflowCntLt.insert(0, inflowCnt)
+#     return {cityStr: inflowCntLt}
+#
+#
+# #  判断老客户新开
+#
+# csm_temp['判断日期'] = np.nan
+#
+# for i in range(csm_temp.shape[0]):
+#     if pd.notnull(csm_temp['账户首次消费日'][i]):
+#         # 表示所在季度的首月月份,即当季度首次消费的账户作为判断
+#         csm_temp['判断日期'][i] = dt.date(csm_temp['账户首次消费日'][i].year, QstarMon(csm_temp['账户首次消费日'][i]),
+#                                           1)
+#
+# # ******************************************************
+# if today.weekday() == 0:  # 周一
+#     t = 2  # 查看时间区间，判断老客户的时间区间
 # else:
 #     t = 1
-# dayAcct = pca[pca['账户最近消费日']>=dt.datetime((today-dt.timedelta(t)).year,(today-dt.timedelta(t)).month,(today-dt.timedelta(t)).day)].reset_index(drop=True)
-# dayAcct
-
-
-pca.drop_duplicates(inplace=True)
-
-# 筛选出前7天消费为0，第8天有消费的
-locs = pca[pca.iloc[:, 9:].apply(lambda row: row[:7].eq(0).all() and row[7] > 0, axis=1)].index
-
-# 按城市分组计数
-s = pca.loc[locs, :].groupby(by='城市')['城市'].count()
-
-dayCust = pd.merge(pca['账户ID'], csm_temp[lt], on='账户ID', how='left')
-dayCust.to_excel(r'缓存数据\dayCust.xlsx')
-print('dayCust:', dayCust)
-
-newOdercityCsm = dayCust.pivot_table(values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['城市'],
-                                     aggfunc=np.sum)
-newOdercityCsm.columns = clm
-
-# 老户新开
-newOdercityCsm = newOdercityCsm.reindex(['厦门市', '泉州市', '漳州市', '龙岩市']).fillna(0).T
-newOdercityCsm.to_excel(r'缓存数据\newOdercityCsm.xlsx')
-print('老户新开消费：', newOdercityCsm)
-
-# newOrderCount('厦门市')
-
-# newOrderCount('泉州市')
-
-# newOrderCount('漳州市')
-
-# newOrderCount('龙岩市')
-
-
-yesterday = today - dt.timedelta(1)
-acct_fist_csm_date = dt.date(yesterday.year, yesterday.month, yesterday.day)
-csm_temp.query('部门 !="框架" and 账户首次消费日==@acct_fist_csm_date')[
-    ['账户名称', '公司名称', '资质客户ID', '运营单位账户属性', '城市', '账户首次消费日', '总消费第8天']].sort_values(
-    '账户首次消费日')
-
-d1 = dict2dataframe(newOrderCount)
-
-
-# 对第8天的数据汇总
-def addDataframe_index(df1, df2):
-    index = df2.index
-    if index[0]:
-        for i in index:
-            df1.loc['第8天', :][i] = df1.loc['第8天', :][i] + s[i]
-    else:
-        print("今日pca没有新单")
-    return df1
-
-
-d1 = addDataframe_index(d1, s)
-
-d1.to_excel(r'缓存数据\newOrderCount.xlsx')
-print('新单数量（需手动添加老户新开的部分的新单）：', d1)
-
-# ########### 此为文鸾数据2023/5/12,2023/5/13,2023/5/18缺失运营单位属性字段的临时处理
-# # 2023/5/12,2023/5/13,2023/5/18缺失的 新客户...
-
-# if csm_temp.query('部门 !="框架" and (账户首次消费日=="2023/5/22" or 账户首次消费日=="2023/5/18")')['运营单位账户属性'].isnull().all():
-#     '''
-#     厦门铂之爵文化传播有限公司
-#     诚兴（泉州市）健康食品有限公司
-#     厦门怪鱼科技有限公司
-#     厦门中期物流有限公司
-#     厦门耀佩不锈钢制品有限公司
-#     龙海市浮宫源正水产育苗场
-#     厦门承逸科技有限公司
-
-#     厦门翼讯科技有限公司
-#     福建镁孚科技有限公司
-#     泉州鑫博机电设备工程有限公司
-#     厦门三七三三网络科技有限公司
-#     厦门市浩林园林绿化工程有限公司
-#     厦门圣宜达科技有限公司
-
-#     龙岩市中力职业培训学校
-#     厦门市焕真心教育科技有限公司
-#     晋江市池店镇昌鑫物流代理服务部
-#     厦门市湖里区沐椽荥电子商务商行
-#     泉州台商投资区衍生信息技术中心
-
-
-#     '''
-
-#     # 2023/5/12,2023/5/12/13缺失的 新客户资质ID
-#     '''
-#     57898793
-#     429628283
-#     429631682
-#     428069324
-#     429631200
-#     429597274
-#     429594939
-
-#     429625356
-#     429631665
-#     429605492
-#     428098992
-#     429616265
-
-#     '''
-
-#     LID = [
-# #     57898793,
-# #     429628283,
-# #     429631682,
-# #     428069324,
-# #     429631200,
-# #     429597274,
-# #     429594939,      
-#     429625356,
-#     429631665,
-#     429605492,
-#     428098992,
-#     429616265,
-
-#     429637611,
-#     429630989,
-#     428181178,
-#     429636294,
-#     429634432
-#     ]
-
-#     a = pd.DataFrame(LID)
-
-#     a.columns=['资质客户ID']
-
-#     b = pd.merge(a,csm_temp[lt],on='资质客户ID',how='left')
-
-#     c = pd.pivot_table(b,values=['总消费第{}天'.format(i) for i in range(1,9)],index=['城市'],aggfunc=np.sum)
-
-#     c.columns=clm
-
-#     dd = c.reindex(city).fillna(0).T
-#     print(dd)
-
-print(newOdercityCsm)
-d2 = pd.concat([newOrderCsm(ct).rename(ct) for ct in city], axis=1) + newOdercityCsm
-d2.to_excel(r'缓存数据\newOdercityCsmAndoldacct.xlsx')
-print('新单消费：', d2)
-
-# d2 = pd.concat([newOrderCsm(ct).rename(ct) for ct in city],axis=1)
-# d2.iloc[8-t:,:] += newOdercityCsm.iloc[2-t:,:]
-# d2
-
-
-# inflowNewOrderCount('厦门市')
-
-# inflowNewOrderCount('泉州市')
-
-# inflowNewOrderCount('漳州市')
-
-# inflowNewOrderCount('龙岩市')
-
-
-d3 = dict2dataframe(inflowNewOrderCount)
-d3.to_excel(r'缓存数据\inflowNewOrderCount.xlsx')
-print('信息流新单数：', d3)
-
-for i, d in enumerate([d1, d2, d3]):
-    sc = [3, 10, 24]
-    writeQuaterData(sheet=newOrder_sht, data=d, startcol=sc[i], startDateRow=6)
-
-# for c in newOrder_sht[getWriteRow(newOrder_sht,6)[0]]:
-#     print(c,c.value)
-
-
-# ## 潜力行业
-
-
-meg2csm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)],
-                         index=['MEG账户二级行业（新）'], aggfunc=np.sum)
-# meg2csm
-
-
-# for i in ['口腔美容','口腔','眼科美容','眼科','职业培训','装修建材','装潢装修','通用机械设备','房地产开发商','房产中介']:
+# # ******************************************************
+# # 特殊时间需更改，表示1年前同季度的首月
+# judgeDate = dt.date((today - dt.timedelta(t)).year, QstarMon(today - dt.timedelta(t)), 1)  ##########
+#
+# # 表示账户首次消费日期1年前同季度之前或者账户首次消费日期为空
+# # PreQcsm_acct = csm_temp[((csm_temp['判断日期'] < judgeDate) | (pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
+# PreQcsm_acct = csm_temp[((csm_temp['部门'] != '框架') & (csm_temp['判断日期'] < judgeDate) | (
+#     pd.isnull(csm_temp['判断日期'])))].reset_index(drop=True)
+# loss = csm_temp[
+#     (csm_temp['判断日期'] == judgeDate) & (csm_temp['运营单位账户属性'] == '一户多开') & (csm_temp['部门'] != '框架')]
+# PreQcsm_acct = pd.concat([PreQcsm_acct, loss])
+# During4Q = pd.read_excel(r'2022Q4-2023Q3.xlsx')  # 每个季度需要更换此数据表
+#
+# # PreQcsm_acct['总消费'] = 0
+# # for p in range(PreQcsm_acct.shape[0]):
+# #     for d in range(During4Q.shape[0]):
+# #         if PreQcsm_acct['账户ID'][p] == During4Q['账户ID'][d]:
+# #             PreQcsm_acct['总消费'][p] = During4Q['总包消费'][d]
+#
+# custidCsm = During4Q.pivot_table(values='总包消费', index='资质客户ID', aggfunc=np.sum).reset_index()
+#
+# # 计算 PreQcsm_acct 的账户（客户） 在During4Q的消费，为空（0）就表示该账户（客户）在前一年都未消费，即老户新开
+# PreQcsm_acct = pd.merge(PreQcsm_acct, During4Q[['账户ID', '总包消费']], on='账户ID', how='left')
+# PreQcsm_acct = pd.merge(PreQcsm_acct, custidCsm[['资质客户ID', '总包消费']], on='资质客户ID', how='left',
+#                         suffixes=('_账户', '_客户'))
+#
+# lt = ['账户ID', '账户名称', '公司名称', '资质客户ID', '运营单位账户属性', '账户首次消费日', '账户最近消费日', '城市',
+#       '企业']
+# lt.extend(['总消费第{}天'.format(i) for i in range(1, 9)])
+#
+# # 存在个别公司后续改资质客户ID的现象，导致新的资质总消费为0，所以也要保证账户消费为0
+# pca = PreQcsm_acct[
+#     pd.isnull(PreQcsm_acct['总包消费_账户']) & pd.isnull(PreQcsm_acct['总包消费_客户']) & PreQcsm_acct['企业'] == 1][
+#     lt].reset_index(drop=True)
+#
+# # for p in range(pca.shape[0]):
+# #     for c in range(custidCsm.shape[0]):
+# #         if pca['资质客户ID'][p] == custidCsm['资质客户ID'][c]:
+# #             pca['总消费'][p] = custidCsm['总消费'][c]
+#
+#
+# # 间隔4季度未消费的老客户定义为新客户
+# pca.to_excel(r'缓存数据\pca.xlsx')
+# print('间隔4季度未消费的老客户定义为新客户：', pca)
+#
+# print('老户新开客户数：', pca['资质客户ID'].unique().shape[0])
+#
+# # if dt.datetime.weekday == 0: # 周一
+# #     t = 2 # 查看时间区间
+# # else:
+# #     t = 1
+# # dayAcct = pca[pca['账户最近消费日']>=dt.datetime((today-dt.timedelta(t)).year,(today-dt.timedelta(t)).month,(today-dt.timedelta(t)).day)].reset_index(drop=True)
+# # dayAcct
+#
+#
+# pca.drop_duplicates(inplace=True)
+#
+#
+#
+# def filter_pca():
+#     df = pd.read_excel(r'缓存数据\ZZID.xlsx')
+#     pca = pd.read_excel(r'缓存数据\pca.xlsx')
+#
+#     valid_ids = set(df['资质客户ID'])
+#     filtered_pca = pca[~pca['资质客户ID'].isin(valid_ids)]
+# # ered_pca里资质客户ID列的元素一次写入df，写入位置是df的第一列的最后一个元素的下一行开始一次写入
+#
+#     qual_cust_ids = filtered_pca['资质客户ID']
+#
+#     for i, id in enumerate(qual_cust_ids):
+#         df.loc[df.shape[0] + i, df.columns[0]] = id
+#     df.to_excel(r'缓存数据\ZZID.xlsx')
+#     filtered_pca.to_excel('filtered_pca.xlsx', index=False, startrow=df.shape[0], header=False)
+#
+#     return filtered_pca
+#
+# # x文件，赋予变量名为本月资质ID，若pca的资质ID列的元素在本月资质ID的第一列里，则剔除改行。若不在，则在第一列的最后一个元素的下一行写入并保存。返回剔除后的pca变量
+# pca = filter_pca()
+# # 筛选出前7天消费为0，第8天有消费的
+# locs = pca[pca.iloc[:, 9:].apply(lambda row: row[:7].eq(0).all() and row[7] > 0, axis=1)].index
+#
+# # 按城市分组计数
+# s = pca.loc[locs, :].groupby(by='城市')['城市'].count()
+#
+# dayCust = pd.merge(pca['账户ID'], csm_temp[lt], on='账户ID', how='left')
+# dayCust.to_excel(r'缓存数据\dayCust.xlsx')
+# print('dayCust:', dayCust)
+#
+# newOdercityCsm = dayCust.pivot_table(values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['城市'],
+#                                      aggfunc=np.sum,fill_value=0)
+# print("newOdercityCsm", newOdercityCsm)
+# if newOdercityCsm.index.empty:
+#     newOdercityCsm = pd.DataFrame(columns=clm)
+# else:
+#     newOdercityCsm.columns = clm
+# # 老户新开
+# newOdercityCsm = newOdercityCsm.reindex(['厦门市', '泉州市', '漳州市', '龙岩市']).fillna(0).T
+# newOdercityCsm.to_excel(r'缓存数据\newOdercityCsm.xlsx')
+# print('老户新开消费：', newOdercityCsm)
+#
+# # newOrderCount('厦门市')
+#
+# # newOrderCount('泉州市')
+#
+# # newOrderCount('漳州市')
+#
+# # newOrderCount('龙岩市')
+#
+#
+# yesterday = today - dt.timedelta(1)
+# acct_fist_csm_date = dt.date(yesterday.year, yesterday.month, yesterday.day)
+# csm_temp.query('部门 !="框架" and 账户首次消费日==@acct_fist_csm_date')[
+#     ['账户名称', '公司名称', '资质客户ID', '运营单位账户属性', '城市', '账户首次消费日', '总消费第8天']].sort_values(
+#     '账户首次消费日')
+#
+# d1 = dict2dataframe(newOrderCount)
+#
+#
+# # 对第8天的数据汇总
+# def addDataframe_index(df1, df2):
+#     index = df2.index
+#     print(index)
+#     if df2.index.empty:
+#         print("今日pca没有新单")
+#
+#     else:
+#         for i in index:
+#             df1.loc['第8天', :][i] = df1.loc['第8天', :][i] + s[i]
+#     return df1
+#
+#
+# d1 = addDataframe_index(d1, s)
+#
+# d1.to_excel(r'缓存数据\newOrderCount.xlsx')
+# print('新单数量（需手动添加老户新开的部分的新单）：', d1)
+#
+# # ########### 此为文鸾数据2023/5/12,2023/5/13,2023/5/18缺失运营单位属性字段的临时处理
+# # # 2023/5/12,2023/5/13,2023/5/18缺失的 新客户...
+#
+# # if csm_temp.query('部门 !="框架" and (账户首次消费日=="2023/5/22" or 账户首次消费日=="2023/5/18")')['运营单位账户属性'].isnull().all():
+# #     '''
+# #     厦门铂之爵文化传播有限公司
+# #     诚兴（泉州市）健康食品有限公司
+# #     厦门怪鱼科技有限公司
+# #     厦门中期物流有限公司
+# #     厦门耀佩不锈钢制品有限公司
+# #     龙海市浮宫源正水产育苗场
+# #     厦门承逸科技有限公司
+#
+# #     厦门翼讯科技有限公司
+# #     福建镁孚科技有限公司
+# #     泉州鑫博机电设备工程有限公司
+# #     厦门三七三三网络科技有限公司
+# #     厦门市浩林园林绿化工程有限公司
+# #     厦门圣宜达科技有限公司
+#
+# #     龙岩市中力职业培训学校
+# #     厦门市焕真心教育科技有限公司
+# #     晋江市池店镇昌鑫物流代理服务部
+# #     厦门市湖里区沐椽荥电子商务商行
+# #     泉州台商投资区衍生信息技术中心
+#
+#
+# #     '''
+#
+# #     # 2023/5/12,2023/5/12/13缺失的 新客户资质ID
+# #     '''
+# #     57898793
+# #     429628283
+# #     429631682
+# #     428069324
+# #     429631200
+# #     429597274
+# #     429594939
+#
+# #     429625356
+# #     429631665
+# #     429605492
+# #     428098992
+# #     429616265
+#
+# #     '''
+#
+# #     LID = [
+# # #     57898793,
+# # #     429628283,
+# # #     429631682,
+# # #     428069324,
+# # #     429631200,
+# # #     429597274,
+# # #     429594939,
+# #     429625356,
+# #     429631665,
+# #     429605492,
+# #     428098992,
+# #     429616265,
+#
+# #     429637611,
+# #     429630989,
+# #     428181178,
+# #     429636294,
+# #     429634432
+# #     ]
+#
+# #     a = pd.DataFrame(LID)
+#
+# #     a.columns=['资质客户ID']
+#
+# #     b = pd.merge(a,csm_temp[lt],on='资质客户ID',how='left')
+#
+# #     c = pd.pivot_table(b,values=['总消费第{}天'.format(i) for i in range(1,9)],index=['城市'],aggfunc=np.sum)
+#
+# #     c.columns=clm
+#
+# #     dd = c.reindex(city).fillna(0).T
+# #     print(dd)
+#
+# print(newOdercityCsm)
+#
+# q1 = pd.concat([newOrderCsm(ct).rename(ct) for ct in city], axis=1)
+# df = pd.read_excel(r'缓存数据\ZZID.xlsx')
+# valid_ids = set(df['资质客户ID'])
+# # ered_pca里资质客户ID列的元素一次写入df，写入位置是df的第一列的最后一个元素的下一行开始一次写入
+#
+# qual_cust_ids = company8csm['资质客户ID']
+#
+# for i, id in enumerate(qual_cust_ids):
+#     df.loc[df.shape[0] + i, df.columns[0]] = id
+# df.to_excel(r'缓存数据\ZZID.xlsx')
+#
+# d2 = pd.concat([newOrderCsm(ct).rename(ct) for ct in city], axis=1) + newOdercityCsm
+# d2.to_excel(r'缓存数据\newOdercityCsmAndoldacct.xlsx')
+# print('新单消费：', d2)
+#
+# # d2 = pd.concat([newOrderCsm(ct).rename(ct) for ct in city],axis=1)
+# # d2.iloc[8-t:,:] += newOdercityCsm.iloc[2-t:,:]
+# # d2
+#
+# # df = pd.read_excel(r'缓存数据\ZZID.xlsx')
+# #
+# # valid_ids = set(df['资质客户ID'])
+# # ered_pca里资质客户ID列的元素一次写入df，写入位置是df的第一列的最后一个元素的下一行开始一次写入
+#
+# # qual_cust_ids = company8csm['资质客户ID']
+# #
+# # for i, id in enumerate(qual_cust_ids):
+# #     df.loc[df.shape[0] + i, df.columns[0]] = id
+# # df.to_excel(r'缓存数据\ZZID.xlsx')
+#
+# # inflowNewOrderCount('厦门市')
+#
+# # inflowNewOrderCount('泉州市')
+#
+# # inflowNewOrderCount('漳州市')
+#
+# # inflowNewOrderCount('龙岩市')
+#
+#
+# d3 = dict2dataframe(inflowNewOrderCount)
+# d3.to_excel(r'缓存数据\inflowNewOrderCount.xlsx')
+# print('信息流新单数：', d3)
+#
+# for i, d in enumerate([d1, d2, d3]):
+#     sc = [3, 10, 24]
+#     writeQuaterData(sheet=newOrder_sht, data=d, startcol=sc[i], startDateRow=6)
+#
+# # for c in newOrder_sht[getWriteRow(newOrder_sht,6)[0]]:
+# #     print(c,c.value)
+#
+#
+# # ## 潜力行业
+#
+#
+# meg2csm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)],
+#                          index=['MEG账户二级行业（新）'], aggfunc=np.sum)
+# # meg2csm
+#
+#
+# # for i in ['口腔美容','口腔','眼科美容','眼科','职业培训','装修建材','装潢装修','通用机械设备','房地产开发商','房产中介']:
+# #     if i not in meg2csm.index:
+# #         meg2csm.loc[i] = 0
+#
+#
+# for i in ['口腔科', '眼科', '职业培训', '房地产开发商', '房产中介']:
 #     if i not in meg2csm.index:
 #         meg2csm.loc[i] = 0
-
-
-for i in ['口腔科', '眼科', '职业培训', '房地产开发商', '房产中介']:
-    if i not in meg2csm.index:
-        meg2csm.loc[i] = 0
-
-plastic_surgery_csm = csm_temp[csm_temp['MEG账户一级行业（新）'] == '整形美容'][
-    ['总消费第{}天'.format(i) for i in range(1, 9)]].apply(lambda x: x.sum())
-plastic_surgery_csm.name = '整形美容'
-
-oral_cavity_csm = meg2csm.loc['口腔科']
-
-ophthalmology_csm = meg2csm.loc['眼科']
-
-# Legal_services_csm = meg2csm.loc['法律服务']
-
-vocational_training_csm = meg2csm.loc['职业培训']
-
-# dbm_csm = meg2csm.loc['装修建材']
-
-# software_csm = meg2csm.loc['商用软件'] 
-
-# zhzx_csm = meg2csm.loc['装潢装修']
-
-# mechanical_equipment_csm = meg2csm.loc['通用机械设备']
-
-real_estate_developer_csm = meg2csm.loc['房地产开发商']
-
-real_estate_mediator_csm = meg2csm.loc['房产中介']
-
-overall_csm = plastic_surgery_csm + oral_cavity_csm + ophthalmology_csm + vocational_training_csm + real_estate_developer_csm + real_estate_mediator_csm
-overall_csm.name = '整体消费'
-
-PotentialIndustries = pd.concat([overall_csm, plastic_surgery_csm, oral_cavity_csm, ophthalmology_csm,
-                                 vocational_training_csm, real_estate_developer_csm, real_estate_mediator_csm], axis=1)
-
-PotentialIndustries.to_excel(r'缓存数据\PotentialIndustries.xlsx')
-print('潜力行业：', PotentialIndustries.round(0))
-
-writeQuaterData(sheet=potentialIndustries_sht, data=PotentialIndustries, startcol=2, startDateRow=7)
-
-# for c in potentialIndustries_sht[getWriteRow(potentialIndustries_sht,7)[0]]:
-#     print(c,c.value)
-
-
-q = np.int32(np.floor(((today - dt.timedelta(1)).month - 1) / 3) + 1)
-filename = '{}年Q{}季度任务监控总表-{}.xlsx'.format((today - dt.timedelta(1)).year, q,
-                                                    (today - dt.timedelta(1)).strftime('%m%d'))
-
-Quarter_monitor_wb.save(path + filename)
-
-'''
-# # 翼百信&布瑞泽日消费监控
-
-
-
-
-# csm_temp = pd.read_excel('日报\数据源\消费数据20230605.xlsx')
-
-
-
-
-
-with pd.ExcelFile('翼百信&布瑞泽日消费监控.xlsx') as ef:
-    ybx = pd.read_excel(ef,sheet_name='翼百信')
-    brz = pd.read_excel(ef,sheet_name='布瑞泽')
-
-
-
-
-
-csm_lbLt = ['总消费第{}天'.format(i) for i in range(1,9)]
-csm_lbLt.append('账户名称')
-
-
-
-
-
-ybx_csm = pd.merge(csm_temp[csm_lbLt],ybx['账户名称'],on='账户名称',how='right').sum()
-brz_csm = pd.merge(csm_temp[csm_lbLt],brz['账户名称'],on='账户名称',how='right').sum()
-
-
-
-
-
-ybx_csm
-
-
-
-
-
-brz_csm
-
-
-
-
-
-ybxAndbrz = load_workbook('翼百信&布瑞泽日消费监控.xlsx')
-day_csm = ybxAndbrz['2023']
-
-
-
-
-
+#
+# plastic_surgery_csm = csm_temp[csm_temp['MEG账户一级行业（新）'] == '整形美容'][
+#     ['总消费第{}天'.format(i) for i in range(1, 9)]].apply(lambda x: x.sum())
+# plastic_surgery_csm.name = '整形美容'
+#
+# oral_cavity_csm = meg2csm.loc['口腔科']
+#
+# ophthalmology_csm = meg2csm.loc['眼科']
+#
+# # Legal_services_csm = meg2csm.loc['法律服务']
+#
+# vocational_training_csm = meg2csm.loc['职业培训']
+#
+# # dbm_csm = meg2csm.loc['装修建材']
+#
+# # software_csm = meg2csm.loc['商用软件']
+#
+# # zhzx_csm = meg2csm.loc['装潢装修']
+#
+# # mechanical_equipment_csm = meg2csm.loc['通用机械设备']
+#
+# real_estate_developer_csm = meg2csm.loc['房地产开发商']
+#
+# real_estate_mediator_csm = meg2csm.loc['房产中介']
+#
+# overall_csm = plastic_surgery_csm + oral_cavity_csm + ophthalmology_csm + vocational_training_csm + real_estate_developer_csm + real_estate_mediator_csm
+# overall_csm.name = '整体消费'
+#
+# PotentialIndustries = pd.concat([overall_csm, plastic_surgery_csm, oral_cavity_csm, ophthalmology_csm,
+#                                  vocational_training_csm, real_estate_developer_csm, real_estate_mediator_csm], axis=1)
+#
+# PotentialIndustries.to_excel(r'缓存数据\PotentialIndustries.xlsx')
+# print('潜力行业：', PotentialIndustries.round(0))
+#
+# writeQuaterData(sheet=potentialIndustries_sht, data=PotentialIndustries, startcol=2, startDateRow=7)
+#
+# # for c in potentialIndustries_sht[getWriteRow(potentialIndustries_sht,7)[0]]:
+# #     print(c,c.value)
+#
+#
+# q = np.int32(np.floor(((today - dt.timedelta(1)).month - 1) / 3) + 1)
+# filename = '{}年Q{}季度任务监控总表-{}.xlsx'.format((today - dt.timedelta(1)).year, q,
+#                                                     (today - dt.timedelta(1)).strftime('%m%d'))
+#
+# Quarter_monitor_wb.save(path + filename)
+#
+# '''
+# # # 翼百信&布瑞泽日消费监控
+#
+#
+#
+#
+# # csm_temp = pd.read_excel('日报\数据源\消费数据20230605.xlsx')
+#
+#
+#
+#
+#
+# with pd.ExcelFile('翼百信&布瑞泽日消费监控.xlsx') as ef:
+#     ybx = pd.read_excel(ef,sheet_name='翼百信')
+#     brz = pd.read_excel(ef,sheet_name='布瑞泽')
+#
+#
+#
+#
+#
+# csm_lbLt = ['总消费第{}天'.format(i) for i in range(1,9)]
+# csm_lbLt.append('账户名称')
+#
+#
+#
+#
+#
+# ybx_csm = pd.merge(csm_temp[csm_lbLt],ybx['账户名称'],on='账户名称',how='right').sum()
+# brz_csm = pd.merge(csm_temp[csm_lbLt],brz['账户名称'],on='账户名称',how='right').sum()
+#
+#
+#
+#
+#
+# ybx_csm
+#
+#
+#
+#
+#
+# brz_csm
+#
+#
+#
+#
+#
+# ybxAndbrz = load_workbook('翼百信&布瑞泽日消费监控.xlsx')
+# day_csm = ybxAndbrz['2023']
+#
+#
+#
+#
+#
+# # for ix,d in enumerate(day_csm["A"]):
+# #     for i in range(2):
+# #         if dt.datetime.today().weekday() == 0:
+# #             j = -i + 2
+# #         else:
+# #             j = 1
+#
+# #         pred = today - dt.timedelta(j)
+# #         if d.value == dt.datetime(pred.year,pred.month,pred.day):
+# #             day_csm.cell(row=ix+1,column=2,value=ybx_csm[8-j])
+# #             day_csm.cell(row=ix+1,column=3,value=brz_csm[8-j])
+#
+#
+#
 # for ix,d in enumerate(day_csm["A"]):
-#     for i in range(2):
-#         if dt.datetime.today().weekday() == 0:
+#     if dt.datetime.today().weekday() == 0:
+#         for i in range(2):
 #             j = -i + 2
-#         else:
-#             j = 1
-            
+#             pred = today - dt.timedelta(j)
+#             if d.value == dt.datetime(pred.year,pred.month,pred.day):
+#                 day_csm.cell(row=ix+1,column=2,value=ybx_csm[8-j])
+#                 day_csm.cell(row=ix+1,column=3,value=brz_csm[8-j])
+#                 day_csm["B{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
+#                 day_csm["C{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
+#
+#     else:
+#         j = 1
 #         pred = today - dt.timedelta(j)
 #         if d.value == dt.datetime(pred.year,pred.month,pred.day):
 #             day_csm.cell(row=ix+1,column=2,value=ybx_csm[8-j])
 #             day_csm.cell(row=ix+1,column=3,value=brz_csm[8-j])
-            
-            
-            
-for ix,d in enumerate(day_csm["A"]):
-    if dt.datetime.today().weekday() == 0:
-        for i in range(2):
-            j = -i + 2    
-            pred = today - dt.timedelta(j)
-            if d.value == dt.datetime(pred.year,pred.month,pred.day):
-                day_csm.cell(row=ix+1,column=2,value=ybx_csm[8-j])
-                day_csm.cell(row=ix+1,column=3,value=brz_csm[8-j])
-                day_csm["B{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
-                day_csm["C{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
-                
-    else:
-        j = 1
-        pred = today - dt.timedelta(j)
-        if d.value == dt.datetime(pred.year,pred.month,pred.day):
-            day_csm.cell(row=ix+1,column=2,value=ybx_csm[8-j])
-            day_csm.cell(row=ix+1,column=3,value=brz_csm[8-j])
-            day_csm["B{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
-            day_csm["C{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
-
-
-
-
-
-ybxAndbrz.save('翼百信&布瑞泽日消费监控.xlsx')
-
-
-
-
-
-try:
-    os.remove('源数据\搜索信息流监控(含季度).csv')
-except:
-    print('FileNotFoundError')
-
-
-
-
-
-t2=time.time()
-
-
-
-
-
-print("总执行时间(s)：",t2-t1)
-
-
-
-
-
-# time.sleep(600)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-df = pd.DataFrame({
-  "name":["黄前久美子","高坂丽奈","伞木希美","铠冢霙","吉川优子","中川夏纪","高坂丽奈","伞木希美","吉川优子"],
-  "score":[82,95,76,81,81,69,93,65,88]
-})
-
-df
-
-
-
-
-
-df.groupby('name').agg({'score':list})
-
-
-
-
-
-df.dtypes
-
-
-
-
-
-df.astype(str).groupby('name').apply(lambda x:','.join(x.score))
-
-
-
-
-
-df.astype(str).groupby('name').apply(lambda x:','.join(x.score)).to_frame('score')
-
-
-
-
-
-df.groupby('name').apply(lambda x:list(x.score)).to_frame('score')
-
-
-
-
-
-df.groupby('name').agg({'score':'unique'})
-
-
-
-
-
-df.groupby('name')['score'].unique()
-
-
-
-
-
-df2 = pd.DataFrame(np.random.randn(2,4))
-df2
-
-
-
-
-
-df2.style.format('{:.2f}')
-
-
-
-
-
-
-
-
-
-
-
-'''
+#             day_csm["B{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
+#             day_csm["C{}".format(ix+1)].font = Font(name='微软雅黑',size=10)
+#
+#
+#
+#
+#
+# ybxAndbrz.save('翼百信&布瑞泽日消费监控.xlsx')
+#
+#
+#
+#
+#
+# try:
+#     os.remove('源数据\搜索信息流监控(含季度).csv')
+# except:
+#     print('FileNotFoundError')
+#
+#
+#
+#
+#
+# t2=time.time()
+#
+#
+#
+#
+#
+# print("总执行时间(s)：",t2-t1)
+#
+#
+#
+#
+#
+# # time.sleep(600)
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+# df = pd.DataFrame({
+#   "name":["黄前久美子","高坂丽奈","伞木希美","铠冢霙","吉川优子","中川夏纪","高坂丽奈","伞木希美","吉川优子"],
+#   "score":[82,95,76,81,81,69,93,65,88]
+# })
+#
+# df
+#
+#
+#
+#
+#
+# df.groupby('name').agg({'score':list})
+#
+#
+#
+#
+#
+# df.dtypes
+#
+#
+#
+#
+#
+# df.astype(str).groupby('name').apply(lambda x:','.join(x.score))
+#
+#
+#
+#
+#
+# df.astype(str).groupby('name').apply(lambda x:','.join(x.score)).to_frame('score')
+#
+#
+#
+#
+#
+# df.groupby('name').apply(lambda x:list(x.score)).to_frame('score')
+#
+#
+#
+#
+#
+# df.groupby('name').agg({'score':'unique'})
+#
+#
+#
+#
+#
+# df.groupby('name')['score'].unique()
+#
+#
+#
+#
+#
+# df2 = pd.DataFrame(np.random.randn(2,4))
+# df2
+#
+#
+#
+#
+#
+# df2.style.format('{:.2f}')
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+# '''
