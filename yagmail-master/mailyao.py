@@ -11,7 +11,7 @@ dasou = 0
 xxliu = 0
 
 # 季度表
-jidu = 1
+jidu = 0
 # 未消费-客服
 weixiaofei_kefu = 0
 # 未消费-销售
