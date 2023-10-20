@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 
 
 FullData = pd.read_csv('未消费客户明细.csv')
-
+print(list(FullData))
 # In[87]:
 
 
@@ -30,7 +30,7 @@ FullData.columns
 # In[88]:
 
 
-temp_list = ['data_flag',
+temp_list = ['date_flag',
              '账户ID',
              '账户名称',
              '公司名称',
@@ -83,7 +83,7 @@ QstarMon()
 date = dt.date(2023, (QstarMon()[0] - 2) * 3 + 1, 1)  ###############################最近两个季度的开始日期
 
 QnotCsm = FullData.query("开户日期>=@date and 总消费==0", engine='python')
-del QnotCsm['data_flag']
+del QnotCsm['date_flag']
 
 # In[95]:
 
