@@ -16,12 +16,17 @@ from openpyxl.formatting.rule import CellIsRule, DataBarRule, DataBar
 from openpyxl.formatting.formatting import ConditionalFormattingList
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font
 import locale
+import sys
 
-# 发证机关所在市-数据延迟，设置为0
-havecity = 1
-# 首次消费日期等-数据延迟，设置为0
-havetime = 1
-
+# 丢失天数，需要使用丢失的数据
+while True:
+    lost_day = input('回溯天数: ')
+    if lost_day.isdigit():
+        lost_day = int(lost_day)
+        if 0 <= lost_day <= 8:
+            break
+    else:
+        print('请输入正整数')
 locale.setlocale(locale.LC_CTYPE, 'chinese')
 
 pd.set_option('display.max_rows', None)
@@ -46,12 +51,24 @@ t1 = time.time()
 
 
 # data = pd.read_csv('源数据\\'+fileList[tdy%6-1],encoding='utf-8')
-data = pd.read_csv('搜索信息流监控(含季度).csv', encoding='utf-8')
 
+# 判断a.xlsx是否存在，没有则抛出异常
+if not os.path.exists('搜索信息流监控(含季度).csv'):
+    print("File '{}' not found.".format('搜索信息流监控(含季度).csv'))
+    sys.exit(1)
+
+data = pd.read_csv('搜索信息流监控(含季度).csv', encoding='utf-8')
 print('data.shape:', data.shape)
 
 # data.head()
-
+# 发证机关所在市-数据延迟，设置为0
+havecity = 1
+# 首次消费日期等-数据延迟，设置为0
+havetime = 1
+if data['发证机关所在市'].isna().sum() == data.shape[0]:
+    havecity = 0
+if data['账户首次消费日'].isna().sum() == data.shape[0] or data['原生首次消费日'].isna().sum() == data.shape[0] or data['账户最近消费日'].isna().sum() == data.shape[0]:
+    havetime = 0
 
 '''
 常见缺失的管理员和发证机关所在市
@@ -89,11 +106,10 @@ if havecity:
                     data['订单行'][i] = order_city['订单行'][j] + '市'
 
 # 匹配订单行优化方法
-
 # a = order_city.set_index('账户名称',append=False)
 
 # dic = dict(zip(a.index.tolist(),a.values.reshape(a.shape[0],)))
-
+0
 # csm_temp['订单行']
 
 # b = csm_temp.copy()
@@ -113,7 +129,7 @@ if havecity:
 
 
 csm_temp = data
-today = dt.datetime.today()
+today = dt.datetime.today() - dt.timedelta(lost_day)
 
 '''
 新增列
@@ -128,25 +144,25 @@ for d in range(1, 9):
     # 转换时间格式
     delta = today- dt.timedelta(9 - d)
     s_delta = delta.strftime('%Y%m%d')
-
+    # 1113
     #     csm_temp[ds_csm_lb] = csm_temp['总消费' + s_delta]  - csm_temp['原生自主投放总消费' + s_delta]  - csm_temp['凤巢优惠券消费' + s_delta] - csm_temp['聚屏平台合约消费' + s_delta] - csm_temp['软植互选消费' + s_delta] - csm_temp['度星选-软植互选-消费' + s_delta]- csm_temp['度星选-软植互选-CPT消费' + s_delta] - csm_temp['度星选-软植互选-打包消费' + s_delta]
     csm_temp[ds_csm_lb] = csm_temp['总消费' + s_delta] - csm_temp['原生自主投放总消费' + s_delta] - csm_temp[
         '凤巢优惠券消费' + s_delta] - csm_temp['聚屏平台合约消费' + s_delta] - csm_temp[
-                              '度星选-软植互选-消费' + s_delta]
+                              '度星选-软植互选-消费' + s_delta] - csm_temp['闭环电商-原生-消费' + s_delta] - csm_temp['手百开屏消费' + s_delta]
 
     csm_temp[infoFlow_csm_lb] = csm_temp['原生自主投放总消费' + s_delta] - csm_temp['原生CPC优惠券消费' + s_delta] - \
-                                csm_temp['原生CPM优惠券消费' + s_delta]
-
+                                csm_temp['原生CPM优惠券消费' + s_delta] + csm_temp['闭环电商-原生-消费' + s_delta]
+    # 1113
     #     csm_temp[total_csm_lb] = csm_temp['总消费' + s_delta] - csm_temp['凤巢优惠券消费' + s_delta] - csm_temp['原生CPC优惠券消费' + s_delta] - csm_temp['原生CPM优惠券消费' + s_delta] - csm_temp['聚屏平台合约消费' + s_delta]- csm_temp['软植互选消费' + s_delta]- csm_temp['度星选-软植互选-消费' + s_delta] - csm_temp['度星选-软植互选-CPT消费' + s_delta] - csm_temp['度星选-软植互选-打包消费' + s_delta]
     csm_temp[total_csm_lb] = csm_temp['总消费' + s_delta] - csm_temp['凤巢优惠券消费' + s_delta] - csm_temp[
         '原生CPC优惠券消费' + s_delta] - csm_temp['原生CPM优惠券消费' + s_delta] - csm_temp[
-                                 '聚屏平台合约消费' + s_delta] - csm_temp['度星选-软植互选-消费' + s_delta]
+                                 '聚屏平台合约消费' + s_delta] - csm_temp['度星选-软植互选-消费' + s_delta]- csm_temp['手百开屏消费' + s_delta]
 
     csm_temp[jr_total_csm_lb] = csm_temp['总消费' + s_delta] - csm_temp['凤巢优惠券消费' + s_delta] - csm_temp[
         '原生CPC优惠券消费' + s_delta] - csm_temp['原生CPM优惠券消费' + s_delta]
 
     csm_temp[jr_ds_csm_lb] = csm_temp['总消费' + s_delta] - csm_temp['原生自主投放总消费' + s_delta] - csm_temp[
-        '凤巢优惠券消费' + s_delta]
+        '凤巢优惠券消费' + s_delta] - csm_temp['闭环电商-原生-消费' + s_delta]
 
 department = pd.read_excel('通讯录.xlsx', usecols=['管理员', '部门', '组别', '客服'])
 
@@ -325,7 +341,7 @@ if havetime:
     csm_temp['原生首次消费日'] = csm_temp['原生首次消费日'].astype(np.datetime64)
     csm_temp['账户最近消费日'] = csm_temp['账户最近消费日'].astype(np.datetime64)
 
-filename = '消费数据' + dt.date.today().strftime('%Y%m%d') + '.xlsx'
+filename = '消费数据' + today.strftime('%Y%m%d') + '.xlsx'
 
 csm_temp.to_excel(r'数据源\\' + filename, index=False)
 
@@ -364,6 +380,7 @@ def newDF(df1, df2, predf1, predf2):
 
 # 查看新老消费数据的差值
 def csmInspection(olddata, newdata):
+    # 判断是否是周一
     if today.weekday() == 0:
         k = 1
     else:
@@ -373,7 +390,7 @@ def csmInspection(olddata, newdata):
     # 昨天
     et = (today - dt.timedelta(1 + k)).day
     print("1111", st, et)
-
+    # st < et : 常规日 和 1号
     if st < et or et == 1:
         col = [(today - dt.timedelta(8 - i)).strftime('%m{m}%d{d}').format(m='月', d='日') for i in range(7 - k)]
 
@@ -384,7 +401,9 @@ def csmInspection(olddata, newdata):
         ne = newdata.iloc[:, :-1 - k]
 
     else:
-        col = [(today - dt.timedelta(et + 1 - i)).strftime('%m{m}%d{d}').format(m='月', d='日') for i in range(et - k)]
+        # 报错点, 列名数col和数据列数ol不相同
+        # col = [(today - dt.timedelta(et + 1 - i)).strftime('%m{m}%d{d}').format(m='月', d='日') for i in range(et - k)]
+        col = [(today - dt.timedelta(et + 1 - i)).strftime('%m{m}%d{d}').format(m='月', d='日') for i in range(et)]
         ol = olddata.iloc[:, :et]
         ne = newdata.iloc[:, (7 - k) - et:-1 - k]
     print(ol, col)
@@ -824,11 +843,11 @@ infoPlow_wb = sheetStyle(infoPlow_ccm, infoPlow_ccacm, '信息流消费表', '�
 
 
 if today.weekday() == 0 and today.day == 2:
-    filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
-                                                           (pred).strftime('%m%d'))
+    filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(2)).strftime('%Y'),
+                                                           (today - dt.timedelta(2)).strftime('%m%d'))
 else:
-    filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((pred - dt.timedelta(1)).strftime('%Y'),
-                                                           (pred).strftime('%m%d'))
+    filename = '{}年信息流客户消费监控总表-{}.xlsx'.format((today - dt.timedelta(1)).strftime('%Y'),
+                                                           (today - dt.timedelta(1)).strftime('%m%d'))
 infoPlow_wb.save(path + filename)
 
 # '''
