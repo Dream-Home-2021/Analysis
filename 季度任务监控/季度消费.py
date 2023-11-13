@@ -5,9 +5,25 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from openpyxl import load_workbook
+import os
+import sys
 
-today = dt.datetime.today()
+# 丢失天数，需要使用丢失的数据
+while True:
+    lost_day = input('回溯天数: ')
+    if lost_day.isdigit():
+        lost_day = int(lost_day)
+        if 0 <= lost_day <= 8:
+            break
+    else:
+        print('请输入正整数')
+
+today = dt.datetime.today() - dt.timedelta(lost_day)
 filename = '消费数据{}.xlsx'.format(today.strftime("%Y%m%d"))
+# 判断a.xlsx是否存在，没有则抛出异常
+if not os.path.exists('../数据源/' + filename):
+    print("File '{}' not found.".format(filename))
+    sys.exit(1)
 csm_temp = pd.read_excel('../数据源/' + filename)
 path = '../季度任务监控\\'
 if today.weekday() == 0:
@@ -191,13 +207,27 @@ writeQuaterData(tcsm_sht, enterpriseCsm, startcol=9, startDateRow=7)
 
 # ### 框架汇总
 
+def chong_liang():
+    dfx1 = csm_temp[['手百开屏消费{}'.format((today - dt.timedelta(i)).strftime('%Y%m%d')) for i in range(1, 9)]].sum()
+    dfx2 = csm_temp[
+        ['度星选-软植互选-消费{}'.format((today - dt.timedelta(i)).strftime('%Y%m%d')) for i in range(1, 9)]].sum()
+    dfx1.index = farme_tcsm.index
+    dfx2.index = farme_tcsm.index
+    dfx = dfx2 + dfx1
+    dfx = dfx.iloc[::-1]
+    dfx.index = farme_tcsm.index
+    return dfx
 
 # 框架消费
 farme_tcsm = pd.pivot_table(csm_temp, values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['企业'],
                             aggfunc=np.sum).iloc[0, :]
+# 有冲量数据时使用
+farme_tcsm = farme_tcsm + chong_liang()
 
 farme_ds_tcsm = pd.pivot_table(csm_temp, values=['大搜第{}天消费'.format(i) for i in range(1, 9)], index=['企业'],
                                aggfunc=np.sum).iloc[0, :]
+# 有冲量数据时使用
+farme_ds_tcsm = farme_ds_tcsm + chong_liang()
 
 farme_infoFlow_tcsm = pd.pivot_table(csm_temp, values=['信息流第{}天消费'.format(i) for i in range(1, 9)],
                                      index=['企业'], aggfunc=np.sum).iloc[0, :]
@@ -209,6 +239,8 @@ farme_medical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] == 0],
 farme_nomedical_tcsm = pd.pivot_table(csm_temp[csm_temp['企业'] == 0],
                                       values=['总消费第{}天'.format(i) for i in range(1, 9)], index=['医疗'],
                                       aggfunc=np.sum).iloc[0, :]
+# 有冲量数据时使用
+farme_nomedical_tcsm = farme_nomedical_tcsm + chong_liang()
 
 farmecsm_values = [farme_tcsm, farme_ds_tcsm, farme_infoFlow_tcsm, farme_medical_tcsm, farme_nomedical_tcsm]
 
